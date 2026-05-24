@@ -70,11 +70,11 @@
                     </select>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
-                    <input type="text" id="formSo" placeholder="Sales Order (SO#)" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
-                    <input type="text" id="formPo" placeholder="Customer PO#" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    <input type="text" id="formSo" placeholder="Sales Order (SO#)" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono">
+                    <input type="text" id="formPo" placeholder="Customer PO#" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono">
                 </div>
                 <div class="grid grid-cols-2 gap-2">
-                    <input type="text" id="formLoad" placeholder="Shippers Edge Load#" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    <input type="text" id="formLoad" placeholder="Shippers Edge Load#" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono">
                     <input type="text" id="formDest" placeholder="Destination Point" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
                 </div>
                 <div class="grid grid-cols-2 gap-2">
@@ -95,7 +95,7 @@
         <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full space-y-4 shadow-2xl">
             <div class="flex justify-between items-center border-b border-slate-800 pb-2">
                 <h3 class="text-sm font-bold text-white">Shipment Record Maintenance</h3>
-                <button onclick="closeMaintenance()" class="text-slate-400 hover:text-white text-md font-bold">&times;</button>
+                <button onclick="closeMaintenance()" class="text-slate-400 hover:text-white text-md font-bold cursor-pointer">&times;</button>
             </div>
             <div class="space-y-3 text-xs">
                 <div>
@@ -137,12 +137,21 @@
                         </select>
                     </div>
                 </div>
+                <div>
+                    <label class="block text-slate-400 mb-1">Operational Release Status Override</label>
+                    <select id="maintStatus" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-semibold">
+                        <option value="AWAITING CARRIER DATA">AWAITING CARRIER DATA</option>
+                        <option value="ACTION REQUIRED">ACTION REQUIRED</option>
+                        <option value="APPROVED TO LOAD">APPROVED TO LOAD</option>
+                        <option value="HOLD – DO NOT LOAD">HOLD – DO NOT LOAD</option>
+                    </select>
+                </div>
             </div>
-            <div class="pt-2 border-t border-slate-800/80 flex justify-between items-center text-xs">
-                <button onclick="deleteShipment()" class="px-3 py-2 bg-rose-950/80 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-semibold rounded-lg transition">Delete Shipment Record</button>
+            <div class="pt-3 border-t border-slate-800/80 flex justify-between items-center text-xs">
+                <button onclick="deleteShipment()" class="px-3 py-2 bg-rose-950/80 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-semibold rounded-lg transition cursor-pointer">Delete Shipment Record</button>
                 <div class="flex gap-2">
-                    <button onclick="closeMaintenance()" class="px-3 py-2 bg-slate-800 text-slate-400 rounded-lg">Close Window</button>
-                    <button onclick="saveShipmentEdits()" class="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition">Save Modifications</button>
+                    <button onclick="closeMaintenance()" class="px-3 py-2 bg-slate-800 text-slate-400 rounded-lg cursor-pointer">Close Window</button>
+                    <button onclick="saveShipmentEdits()" class="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition cursor-pointer">Save Modifications</button>
                 </div>
             </div>
         </div>
@@ -152,7 +161,7 @@
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 max-w-lg w-full space-y-4 shadow-2xl text-xs">
             <div class="flex justify-between items-center border-b border-slate-800 pb-2">
                 <h3 class="text-sm font-bold text-white">Broker Submitted Dispatch Profile & Form Attachments</h3>
-                <button onclick="closeReviewModal()" class="text-slate-400 hover:text-white text-md font-bold">&times;</button>
+                <button onclick="closeReviewModal()" class="text-slate-400 hover:text-white text-md font-bold cursor-pointer">&times;</button>
             </div>
             
             <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2 font-mono text-slate-300">
@@ -166,14 +175,12 @@
 
             <div class="space-y-2">
                 <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Submitted Security Images</h4>
-                <div id="imageReviewGrid" class="grid grid-cols-2 gap-2">
-                    </div>
+                <div id="imageReviewGrid" class="grid grid-cols-2 gap-2"></div>
             </div>
 
             <div class="pt-2 border-t border-slate-800/80 flex gap-2 justify-end">
-                <button onclick="closeReviewModal()" class="px-3 py-2 bg-slate-800 text-slate-400 rounded-lg">Leave Pending / Close</button>
-                <button onclick="updateStatus('HOLD – DO NOT LOAD')" class="px-3 py-2 bg-rose-950/80 text-rose-400 border border-rose-900/60 font-bold rounded-lg hover:bg-rose-900 transition">Deny & Place on Strict HOLD</button>
-                <button onclick="updateStatus('APPROVED TO LOAD')" class="px-4 py-2 bg-emerald-600 font-bold rounded-lg text-white hover:bg-emerald-700 transition shadow-md shadow-emerald-950/40">Verify & Approve to Load</button>
+                <button onclick="closeReviewModal()" class="px-4 py-2.5 bg-slate-800 text-slate-300 rounded-lg font-medium hover:bg-slate-700 transition cursor-pointer">1. Close and Continue to Hold Shipment</button>
+                <button onclick="updateStatus('APPROVED TO LOAD')" class="px-5 py-2.5 bg-emerald-600 font-bold rounded-lg text-white hover:bg-emerald-700 transition cursor-pointer shadow-md shadow-emerald-950/40">2. Verify and Approve to Load</button>
             </div>
         </div>
     </div>
@@ -209,6 +216,16 @@
             if (!data) return;
 
             data.forEach(row => {
+                // Computed Visual Status Style Matrix mapping
+                let statusBadgeColor = "text-slate-400 bg-slate-950 border-slate-800";
+                if (row.release_status === 'ACTION REQUIRED') {
+                    statusBadgeColor = "text-amber-400 bg-amber-950/40 border-amber-900/60 animate-pulse";
+                } else if (row.release_status === 'APPROVED TO LOAD') {
+                    statusBadgeColor = "text-emerald-400 bg-emerald-950/50 border-emerald-900/60";
+                } else if (row.release_status === 'HOLD – DO NOT LOAD') {
+                    statusBadgeColor = "text-rose-400 bg-rose-950/60 border-rose-900/60";
+                }
+
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-800/30 border-b border-slate-800/40 align-middle";
                 tr.innerHTML = `
@@ -221,7 +238,11 @@
                     <td class="p-3">
                         <button onclick="openReviewModal('${row.so_number}')" class="px-2 py-1 bg-slate-800 border border-slate-700 text-[10px] rounded hover:bg-slate-700 cursor-pointer transition">🔍 View Form</button>
                     </td>
-                    <td class="p-3 font-bold">${row.release_status}</td>
+                    <td class="p-3">
+                        <span class="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-md border ${statusBadgeColor}">
+                            ${row.release_status}
+                        </span>
+                    </td>
                     <td class="p-3 font-mono text-[10px] text-slate-500">👤 ${row.updated_by}</td>
                 `;
                 tbody.appendChild(tr);
@@ -249,29 +270,24 @@
                 load_number: document.getElementById('formLoad').value,
                 destination: document.getElementById('formDest').value, 
                 carrier_name: document.getElementById('formCarrier').value,
-                carrier_type: document.getElementById('formType').value, 
+                carrier_type: document.getElementById('formType').value,
+                release_status: 'AWAITING CARRIER DATA', // Enforce baseline state
                 updated_by: activeUser
             }]).select();
 
-            if (error) {
-                alert("Database Error: " + error.message);
-                return;
-            }
+            if (error) { alert("Database Error: " + error.message); return; }
 
             if (data && data.length > 0) {
                 const newLoad = data[0];
                 const portalUrl = `${window.location.origin}/carrier-portal.html?token=${newLoad.id}`;
-                
                 navigator.clipboard.writeText(portalUrl);
                 alert(`Token generated and logged into database matrix!\n\nLink copied to clipboard:\n${portalUrl}`);
                 closeIngestion();
                 fetchMasterData();
-            } else {
-                alert("Shipment logged, but verification link could not copy. Refresh your queue table view.");
             }
         }
 
-        // NEW: OPEN SHIPMENT MAINTENANCE VIEW ENGINE
+        // OPEN SHIPMENT MAINTENANCE MODAL VIEW VIA SO# CLICK
         async function openMaintenanceModal(so) {
             const { data, error } = await supabaseClient.from('shipments').select('*').eq('so_number', so).single();
             if (error || !data) return;
@@ -283,13 +299,14 @@
             document.getElementById('maintDest').value = data.destination;
             document.getElementById('maintCarrier').value = data.carrier_name;
             document.getElementById('maintType').value = data.carrier_type;
+            document.getElementById('maintStatus').value = data.release_status;
 
             document.getElementById('maintenanceModal').classList.remove('hidden');
         }
 
         function closeMaintenance() { document.getElementById('maintenanceModal').classList.add('hidden'); }
 
-        // NEW: EXECUTE SHIPMENT RECORD UPDATES
+        // EXECUTE MODIFICATIONS AND SAVE DIRECTLY INTO THE CLOUD MATRIX
         async function saveShipmentEdits() {
             const so = document.getElementById('maintSo').value;
             const { error } = await supabaseClient.from('shipments').update({
@@ -299,6 +316,7 @@
                 destination: document.getElementById('maintDest').value,
                 carrier_name: document.getElementById('maintCarrier').value,
                 carrier_type: document.getElementById('maintType').value,
+                release_status: document.getElementById('maintStatus').value,
                 updated_by: activeUser,
                 last_updated_time: new Date()
             }).eq('so_number', so);
@@ -308,7 +326,7 @@
             fetchMasterData();
         }
 
-        // NEW: HARD PURGE SHIPMENT RECOVERY DATA
+        // HARD DELETE LOGISTICS RUN OVERRIDE
         async function deleteShipment() {
             const so = document.getElementById('maintSo').value;
             if (confirm(`⚠️ CRITICAL LOGISTICS OVERRIDE\n\nAre you sure you want to permanently erase Shipment ${so}? This will break any active broker check-in tracking links and clear it from the warehouse floor dashboards completely.`)) {
@@ -319,7 +337,7 @@
             }
         }
 
-        // CHANGED: Added dynamic image injection loop and exemption processing engine
+        // DYNAMIC REVIEW WINDOW POPULATOR
         async function openReviewModal(so) {
             activeReviewSo = so;
             const { data } = await supabaseClient.from('shipments').select('*').eq('so_number', so).single();
@@ -333,7 +351,7 @@
             document.getElementById('revDOT').innerText = data.dot_number || 'TBD';
 
             const imgGrid = document.getElementById('imageReviewGrid');
-            imgGrid.innerHTML = ""; // Wipe past visual tracking frames
+            imgGrid.innerHTML = ""; 
 
             if (data.carrier_type === 'Asset-Based') {
                 imgGrid.className = "block text-center p-4 bg-indigo-950/30 border border-indigo-900/40 rounded-xl";
