@@ -172,21 +172,39 @@
         function openIngestion() { document.getElementById('ingestModal').classList.remove('hidden'); }
         function closeIngestion() { document.getElementById('ingestModal').classList.add('hidden'); }
 
-        async function submitShipment() {
-            const so = document.getElementById('formSo').value;
-            const { data } = await supabaseClient.from('shipments').insert([{
-                warehouse_name: document.getElementById('formWh').value, so_number: so,
-                po_number: document.getElementById('formPo').value, load_number: document.getElementById('formLoad').value,
-                destination: document.getElementById('formDest').value, carrier_name: document.getElementById('formCarrier').value,
-                carrier_type: document.getElementById('formType').value, updated_by: activeUser
-            }]).select().single();
-            
-            const portalUrl = `${window.location.origin}/portal?token=${data.id}`;
-            navigator.clipboard.writeText(portalUrl);
-            alert(`Token generated and logged into database matrix!\n\nLink copied to clipboard:\n${portalUrl}`);
-            closeIngestion();
-            fetchMasterData();
-        }
+		async function submitShipment() {
+			const so = document.getElementById('formSo').value;
+			
+			const { data, error } = await supabaseClient.from('shipments').insert([{
+				warehouse_name: document.getElementById('formWh').value, 
+				so_number: so,
+				po_number: document.getElementById('formPo').value, 
+				load_number: document.getElementById('formLoad').value,
+				destination: document.getElementById('formDest').value, 
+				carrier_name: document.getElementById('formCarrier').value,
+				carrier_type: document.getElementById('formType').value, 
+				updated_by: activeUser
+			}]).select(); // Removed .single() to handle array returns cleanly
+
+			if (error) {
+				alert("Database Error: " + error.message);
+				return;
+			}
+
+			// Safety check: verify data was returned successfully
+			if (data && data.length > 0) {
+				const newLoad = data[0];
+				// Fix: Use the actual static filename 'carrier-portal.html' instead of '/portal'
+				const portalUrl = `${window.location.origin}/carrier-portal.html?token=${newLoad.id}`;
+				
+				navigator.clipboard.writeText(portalUrl);
+				alert(`Token generated and logged into database matrix!\n\nLink copied to clipboard:\n${portalUrl}`);
+				closeIngestion();
+				fetchMasterData();
+			} else {
+				alert("Shipment logged, but verification link could not copy. Refresh your queue table view.");
+			}
+		}
 
         async function openReviewModal(so) {
             activeReviewSo = so;
