@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><title>The Fishin' Company - Carrier Gate Registration</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-[#0b0f19] text-slate-200 p-6 flex flex-col items-center justify-center min-h-screen">
+    
+    <div id="expirationBlock" class="hidden text-center space-y-2 max-w-sm">
+        <h2 class="text-xl font-bold text-rose-500">🔒 Token Link Expired</h2>
+        <p class="text-xs text-slate-400">Security Rule Override: This load reservation token has passed its 24-hour allocation window. Contact your Fishin' transportation coordinator to re-issue dispatch gate tokens.</p>
+    </div>
+
+    <div id="portalFormCard" class="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-md w-full shadow-2xl space-y-6">
+        <div>
+            <h2 class="text-lg font-bold text-white">Outbound Ingestion Inbound Manifest</h2>
+            <p class="text-xs text-slate-400 mt-1">Provide strict driver assignments to prevent terminal entry rejection.</p>
+        </div>
+
+        <div class="p-3 bg-indigo-950/40 border border-indigo-900/40 rounded-xl text-xs space-y-1">
+            <p>Sales Order Ref: <strong id="manifestSo" class="font-mono text-white">---</strong></p>
+            <p>Mandatory Target Coldchain Temp: <strong class="text-rose-400 font-bold">-10°F CONT</strong></p>
+        </div>
+
+        <form id="carrierForm" class="space-y-3.5 text-xs">
+            <input type="text" id="driverName" placeholder="Driver Full Legal Name (As displayed on CDL)" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+            <input type="text" id="driverLic" placeholder="Commercial Driver's License (CDL) Number" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+            <input type="tel" id="driverPhone" placeholder="Driver Mobile Phone Line" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+            <div class="grid grid-cols-2 gap-2">
+                <input type="text" id="truckNum" placeholder="Tractor / Truck ID" required class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+                <input type="text" id="trailerNum" placeholder="Trailer Equipment ID" required class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <input type="text" id="mcNum" placeholder="Carrier MC Number" required class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+                <input type="text" id="dotNum" placeholder="Carrier DOT Registration" required class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+            </div>
+            <button type="submit" class="w-full py-3 bg-indigo-600 font-bold rounded-xl text-white hover:bg-indigo-700 transition cursor-pointer">Submit Secure Manifest Details</button>
+        </form>
+    </div>
+
+    <script>
+        const supabase = supabase.createClient("YOUR_SUPABASE_PROJECT_URL", "YOUR_SUPABASE_ANON_PUBLIC_KEY");
+        const urlParams = new URLSearchParams(window.location.search);
+        const recordToken = urlParams.get('token');
+
+        async function initPortal() {
+            const { data, error } = await supabase.from('shipments').select('*').eq('id', recordToken).single();
+            if (error || !data) { alert("Invalid encrypted authentication load index token."); return; }
+
+            // Enforce the strict 24-hour expiration security rule framework
+            const timeDifference = new Date() - new Date(data.created_at);
+            if (timeDifference > 24 * 60 * 60 * 1000) {
+                document.getElementById('portalFormCard').classList.add('hidden');
+                document.getElementById('expirationBlock').classList.remove('hidden');
+                return;
+            }
+            document.getElementById('manifestSo').innerText = data.so_number;
+        }
+
+        document.getElementById('carrierForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await supabase.from('shipments').update({
+                driver_name: document.getElementById('driverName').value,
+                driver_license: document.getElementById('driverLic').value,
+                driver_phone: document.getElementById('driverPhone').value,
+                truck_number: document.getElementById('truckNum').value,
+                trailer_number: document.getElementById('trailerNum').value,
+                mc_number: document.getElementById('mcNum').value,
+                dot_number: document.getElementById('dotNum').value,
+                driver_form_submitted: true
+            }).eq('id', recordToken);
+            alert("Security manifest uploaded successfully. Your equipment has been provisionally registered for warehouse entry.");
+        });
+
+        initPortal();
+    </script>
+</body>
+</html>

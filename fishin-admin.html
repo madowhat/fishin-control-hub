@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>The Fishin' Company - Logistics Control Tower</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-[#0b0f19] text-slate-200 antialiased min-h-screen flex flex-col">
+
+    <div id="loginOverlay" class="fixed inset-0 bg-[#0b0f19] z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-sm w-full space-y-4 shadow-2xl">
+            <h2 class="text-xl font-bold text-white text-center">Fishin' Corporate Login</h2>
+            <input type="email" id="loginEmail" placeholder="Username / Corporate Email" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <input type="password" id="loginPass" placeholder="Security Token Access Password" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <button onclick="handleLogin()" class="w-full py-3 bg-indigo-600 font-semibold rounded-xl text-sm text-white hover:bg-indigo-700 transition cursor-pointer">Verify Credentials</button>
+        </div>
+    </div>
+
+    <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center shadow-xl">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-black">F</div>
+            <div>
+                <h1 class="text-md font-bold text-white">The Fishin' Company</h1>
+                <p class="text-[10px] text-slate-400">HQ Global Network Command Queue</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-4 text-xs">
+            <span class="text-slate-400">Operator: <strong id="currentUserLabel" class="text-slate-200">Not Verified</strong></span>
+            <button onclick="openIngestion()" class="px-3.5 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition cursor-pointer shadow-md">Create New Shipment</button>
+        </div>
+    </header>
+
+    <section class="bg-slate-900/30 border-b border-slate-800/50 px-6 py-3 flex gap-2">
+        <button onclick="filterWarehouse('All')" id="wh-All" class="px-3 py-1 bg-slate-800 text-white border border-slate-700 text-xs font-semibold rounded-md cursor-pointer">All Warehouses</button>
+        <button onclick="filterWarehouse('Baltimore')" id="wh-Baltimore" class="px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white">Baltimore</button>
+        <button onclick="filterWarehouse('Mobile')" id="wh-Mobile" class="px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white">Mobile</button>
+        <button onclick="filterWarehouse('Burien')" id="wh-Burien" class="px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white">Burien</button>
+    </section>
+
+    <main class="flex-1 p-6 overflow-x-auto">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-950 text-slate-400 text-[10px] font-bold uppercase tracking-wider border-b border-slate-800">
+                        <th class="py-3.5 px-4">Warehouse</th>
+                        <th class="py-3.5 px-4">SO#</th>
+                        <th class="py-3.5 px-4">PO#</th>
+                        <th class="py-3.5 px-4">Load#</th>
+                        <th class="py-3.5 px-4">Destination</th>
+                        <th class="py-3.5 px-4">Carrier Assigned</th>
+                        <th class="py-3.5 px-4">Carrier Entry Data</th>
+                        <th class="py-3.5 px-4 w-52">Operational Release Status</th>
+                        <th class="py-3.5 px-4">Audit Trace</th>
+                    </tr>
+                </thead>
+                <tbody id="adminTableBody" class="divide-y divide-slate-800/60 text-xs"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <div id="ingestModal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 z-40">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full space-y-4 shadow-2xl">
+            <h3 class="text-sm font-bold text-white border-b border-slate-800 pb-2">Generate Secure Carrier Ingestion Token</h3>
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-slate-400 mb-1">Target Warehouse Origin</label>
+                    <select id="formWh" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                        <option value="Baltimore">Baltimore</option><option value="Mobile">Mobile</option><option value="Burien">Burien</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" id="formSo" placeholder="Sales Order (SO#)" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    <input type="text" id="formPo" placeholder="Customer PO#" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" id="formLoad" placeholder="Shippers Edge Load#" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    <input type="text" id="formDest" placeholder="Destination Point" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" id="formCarrier" placeholder="Carrier Operator Name" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    <select id="formType" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                        <option value="Broker">Broker Contract</option><option value="Asset-Based">Asset Core Whitelist</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pt-2 flex justify-end gap-2 text-xs">
+                <button onclick="closeIngestion()" class="px-3 py-2 bg-slate-800 text-slate-400 rounded-lg">Cancel</button>
+                <button onclick="submitShipment()" class="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg">Create Load Asset</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="reviewModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-40">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 max-w-md w-full space-y-4 shadow-2xl text-xs">
+            <h3 class="text-sm font-bold text-white">Broker Submitted Dispatch Profile</h3>
+            <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2 font-mono text-slate-300">
+                <p>Driver Name: <span id="revDriver" class="text-white font-sans font-bold">---</span></p>
+                <p>License ID: <span id="revLic">---</span></p>
+                <p>Phone Line: <span id="revPhone">---</span></p>
+                <p>Tractor Unit: <span id="revTruck">---</span></p>
+                <p>Trailer Unit: <span id="revTrailer">---</span></p>
+                <p>Authority: MC# <span id="revMC">---</span> | DOT# <span id="revDOT">---</span></p>
+            </div>
+            <div class="flex gap-2 justify-end">
+                <button onclick="updateStatus('HOLD – DO NOT LOAD')" class="px-3 py-2 bg-rose-700 font-bold rounded-lg text-white">PUT ON HOLD</button>
+                <button onclick="updateStatus('APPROVED TO LOAD')" class="px-4 py-2 bg-emerald-600 font-bold rounded-lg text-white">APPROVE FOR OUTBOUND</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 🛠️ FIX: Changed variable name to 'supabaseClient' to avoid browser naming conflicts
+        const supabaseClient = supabase.createClient("https://xknhqscsusfuhodujajy.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhrbmhxc2NzdXNmdWhvZHVqYWp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NDU5MjMsImV4cCI6MjA5NTEyMTkyM30.IqQ_WeKRfg5EO2y8rbn7MAUT1vSMCS-6fIxC2M1oTGw");
+        
+        let activeUser = "";
+        let currentWhFilter = "All";
+        let activeReviewSo = "";
+
+        async function handleLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const pass = document.getElementById('loginPass').value;
+            
+            if(email.endsWith("@thefishincompany.com") && pass === "FishinSafe2026") {
+                activeUser = email;
+                document.getElementById('currentUserLabel').innerText = activeUser;
+                document.getElementById('loginOverlay').classList.add('hidden');
+                fetchMasterData();
+                
+                // Real-time listener sync engine
+                supabaseClient.channel('room1').on('postgres_changes', {event:'*', schema:'public', table:'shipments'}, fetchMasterData).subscribe();
+            } else { alert("Invalid access credentials for internal company nodes."); }
+        }
+
+        async function fetchMasterData() {
+            let query = supabaseClient.from('shipments').select('*').order('created_at', {ascending: false});
+            if(currentWhFilter !== "All") query = query.eq('warehouse_name', currentWhFilter);
+            const { data } = await query;
+            const tbody = document.getElementById('adminTableBody');
+            tbody.innerHTML = "";
+
+            if (!data) return;
+
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-800/30 border-b border-slate-800/40";
+                tr.innerHTML = `
+                    <td class="p-3 font-semibold text-slate-300">${row.warehouse_name}</td>
+                    <td class="p-3 font-mono text-indigo-400 font-bold">${row.so_number}</td>
+                    <td class="p-3 font-mono text-slate-400">${row.po_number}</td>
+                    <td class="p-3 font-mono text-slate-400">${row.load_number}</td>
+                    <td class="p-3 text-slate-300 font-medium">${row.destination}</td>
+                    <td class="p-3 font-medium text-slate-200">${row.carrier_name}<br><span class="text-[9px] font-mono text-slate-500">${row.carrier_type}</span></td>
+                    <td class="p-3">
+                        <button onclick="openReviewModal('${row.so_number}')" class="px-2 py-1 bg-slate-800 border border-slate-700 text-[10px] rounded hover:bg-slate-700">🔍 View Form</button>
+                    </td>
+                    <td class="p-3 font-bold">${row.release_status}</td>
+                    <td class="p-3 font-mono text-[10px] text-slate-500">👤 ${row.updated_by}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterWarehouse(wh) {
+            currentWhFilter = wh;
+            ['All', 'Baltimore', 'Mobile', 'Burien'].forEach(w => {
+                document.getElementById(`wh-${w}`).className = w === wh ? "px-3 py-1 bg-slate-800 text-white border border-slate-700 text-xs font-semibold rounded-md cursor-pointer" : "px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white";
+            });
+            fetchMasterData();
+        }
+
+        function openIngestion() { document.getElementById('ingestModal').classList.remove('hidden'); }
+        function closeIngestion() { document.getElementById('ingestModal').classList.add('hidden'); }
+
+        async function submitShipment() {
+            const so = document.getElementById('formSo').value;
+            const { data } = await supabaseClient.from('shipments').insert([{
+                warehouse_name: document.getElementById('formWh').value, so_number: so,
+                po_number: document.getElementById('formPo').value, load_number: document.getElementById('formLoad').value,
+                destination: document.getElementById('formDest').value, carrier_name: document.getElementById('formCarrier').value,
+                carrier_type: document.getElementById('formType').value, updated_by: activeUser
+            }]).select().single();
+            
+            const portalUrl = `${window.location.origin}/portal?token=${data.id}`;
+            navigator.clipboard.writeText(portalUrl);
+            alert(`Token generated and logged into database matrix!\n\nLink copied to clipboard:\n${portalUrl}`);
+            closeIngestion();
+            fetchMasterData();
+        }
+
+        async function openReviewModal(so) {
+            activeReviewSo = so;
+            const { data } = await supabaseClient.from('shipments').select('*').eq('so_number', so).single();
+            document.getElementById('revDriver').innerText = data.driver_name;
+            document.getElementById('revLic').innerText = data.driver_license;
+            document.getElementById('revPhone').innerText = data.driver_phone;
+            document.getElementById('revTruck').innerText = data.truck_number;
+            document.getElementById('revTrailer').innerText = data.trailer_number;
+            document.getElementById('revMC').innerText = data.mc_number;
+            document.getElementById('revDOT').innerText = data.dot_number;
+            document.getElementById('reviewModal').classList.remove('hidden');
+        }
+
+        async function updateStatus(status) {
+            await supabaseClient.from('shipments').update({ release_status: status, updated_by: activeUser, last_updated_time: new Date() }).eq('so_number', activeReviewSo);
+            document.getElementById('reviewModal').classList.add('hidden');
+            fetchMasterData();
+        }
+    </script>
+</body>
+</html>
