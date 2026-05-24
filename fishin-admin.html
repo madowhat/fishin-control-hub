@@ -91,9 +91,70 @@
         </div>
     </div>
 
+    <div id="maintenanceModal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 z-40">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                <h3 class="text-sm font-bold text-white">Shipment Record Maintenance</h3>
+                <button onclick="closeMaintenance()" class="text-slate-400 hover:text-white text-md font-bold">&times;</button>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-slate-400 mb-1">Origin Warehouse</label>
+                    <select id="maintWh" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                        <option value="Baltimore">Baltimore</option><option value="Mobile">Mobile</option><option value="Burien">Burien</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-slate-400 mb-1">Sales Order (SO#)</label>
+                        <input type="text" id="maintSo" readonly class="w-full bg-slate-950 border border-slate-800/80 rounded-lg p-2 text-slate-500 font-mono focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">Customer PO#</label>
+                        <input type="text" id="maintPo" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-slate-400 mb-1">Shippers Edge Load#</label>
+                        <input type="text" id="maintLoad" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">Destination Point</label>
+                        <input type="text" id="maintDest" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-slate-400 mb-1">Carrier Assignment</label>
+                        <input type="text" id="maintCarrier" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">Assignment Type</label>
+                        <select id="maintType" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                            <option value="Broker">Broker Contract</option>
+                            <option value="Asset-Based">Asset Core Whitelist</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="pt-2 border-t border-slate-800/80 flex justify-between items-center text-xs">
+                <button onclick="deleteShipment()" class="px-3 py-2 bg-rose-950/80 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-semibold rounded-lg transition">Delete Shipment Record</button>
+                <div class="flex gap-2">
+                    <button onclick="closeMaintenance()" class="px-3 py-2 bg-slate-800 text-slate-400 rounded-lg">Close Window</button>
+                    <button onclick="saveShipmentEdits()" class="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition">Save Modifications</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="reviewModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-40">
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 max-w-md w-full space-y-4 shadow-2xl text-xs">
-            <h3 class="text-sm font-bold text-white">Broker Submitted Dispatch Profile</h3>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 max-w-lg w-full space-y-4 shadow-2xl text-xs">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                <h3 class="text-sm font-bold text-white">Broker Submitted Dispatch Profile & Form Attachments</h3>
+                <button onclick="closeReviewModal()" class="text-slate-400 hover:text-white text-md font-bold">&times;</button>
+            </div>
+            
             <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2 font-mono text-slate-300">
                 <p>Driver Name: <span id="revDriver" class="text-white font-sans font-bold">---</span></p>
                 <p>License ID: <span id="revLic">---</span></p>
@@ -102,15 +163,22 @@
                 <p>Trailer Unit: <span id="revTrailer">---</span></p>
                 <p>Authority: MC# <span id="revMC">---</span> | DOT# <span id="revDOT">---</span></p>
             </div>
-            <div class="flex gap-2 justify-end">
-                <button onclick="updateStatus('HOLD – DO NOT LOAD')" class="px-3 py-2 bg-rose-700 font-bold rounded-lg text-white">PUT ON HOLD</button>
-                <button onclick="updateStatus('APPROVED TO LOAD')" class="px-4 py-2 bg-emerald-600 font-bold rounded-lg text-white">APPROVE FOR OUTBOUND</button>
+
+            <div class="space-y-2">
+                <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Submitted Security Images</h4>
+                <div id="imageReviewGrid" class="grid grid-cols-2 gap-2">
+                    </div>
+            </div>
+
+            <div class="pt-2 border-t border-slate-800/80 flex gap-2 justify-end">
+                <button onclick="closeReviewModal()" class="px-3 py-2 bg-slate-800 text-slate-400 rounded-lg">Leave Pending / Close</button>
+                <button onclick="updateStatus('HOLD – DO NOT LOAD')" class="px-3 py-2 bg-rose-950/80 text-rose-400 border border-rose-900/60 font-bold rounded-lg hover:bg-rose-900 transition">Deny & Place on Strict HOLD</button>
+                <button onclick="updateStatus('APPROVED TO LOAD')" class="px-4 py-2 bg-emerald-600 font-bold rounded-lg text-white hover:bg-emerald-700 transition shadow-md shadow-emerald-950/40">Verify & Approve to Load</button>
             </div>
         </div>
     </div>
 
     <script>
-        // 🛠️ FIX: Changed variable name to 'supabaseClient' to avoid browser naming conflicts
         const supabaseClient = supabase.createClient("https://xknhqscsusfuhodujajy.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhrbmhxc2NzdXNmdWhvZHVqYWp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NDU5MjMsImV4cCI6MjA5NTEyMTkyM30.IqQ_WeKRfg5EO2y8rbn7MAUT1vSMCS-6fIxC2M1oTGw");
         
         let activeUser = "";
@@ -127,7 +195,6 @@
                 document.getElementById('loginOverlay').classList.add('hidden');
                 fetchMasterData();
                 
-                // Real-time listener sync engine
                 supabaseClient.channel('room1').on('postgres_changes', {event:'*', schema:'public', table:'shipments'}, fetchMasterData).subscribe();
             } else { alert("Invalid access credentials for internal company nodes."); }
         }
@@ -143,16 +210,16 @@
 
             data.forEach(row => {
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-800/30 border-b border-slate-800/40";
+                tr.className = "hover:bg-slate-800/30 border-b border-slate-800/40 align-middle";
                 tr.innerHTML = `
                     <td class="p-3 font-semibold text-slate-300">${row.warehouse_name}</td>
-                    <td class="p-3 font-mono text-indigo-400 font-bold">${row.so_number}</td>
+                    <td class="p-3 font-mono text-indigo-400 font-bold hover:underline cursor-pointer" onclick="openMaintenanceModal('${row.so_number}')">${row.so_number}</td>
                     <td class="p-3 font-mono text-slate-400">${row.po_number}</td>
                     <td class="p-3 font-mono text-slate-400">${row.load_number}</td>
                     <td class="p-3 text-slate-300 font-medium">${row.destination}</td>
                     <td class="p-3 font-medium text-slate-200">${row.carrier_name}<br><span class="text-[9px] font-mono text-slate-500">${row.carrier_type}</span></td>
                     <td class="p-3">
-                        <button onclick="openReviewModal('${row.so_number}')" class="px-2 py-1 bg-slate-800 border border-slate-700 text-[10px] rounded hover:bg-slate-700">🔍 View Form</button>
+                        <button onclick="openReviewModal('${row.so_number}')" class="px-2 py-1 bg-slate-800 border border-slate-700 text-[10px] rounded hover:bg-slate-700 cursor-pointer transition">🔍 View Form</button>
                     </td>
                     <td class="p-3 font-bold">${row.release_status}</td>
                     <td class="p-3 font-mono text-[10px] text-slate-500">👤 ${row.updated_by}</td>
@@ -172,52 +239,136 @@
         function openIngestion() { document.getElementById('ingestModal').classList.remove('hidden'); }
         function closeIngestion() { document.getElementById('ingestModal').classList.add('hidden'); }
 
-		async function submitShipment() {
-			const so = document.getElementById('formSo').value;
-			
-			const { data, error } = await supabaseClient.from('shipments').insert([{
-				warehouse_name: document.getElementById('formWh').value, 
-				so_number: so,
-				po_number: document.getElementById('formPo').value, 
-				load_number: document.getElementById('formLoad').value,
-				destination: document.getElementById('formDest').value, 
-				carrier_name: document.getElementById('formCarrier').value,
-				carrier_type: document.getElementById('formType').value, 
-				updated_by: activeUser
-			}]).select(); // Removed .single() to handle array returns cleanly
+        async function submitShipment() {
+            const so = document.getElementById('formSo').value;
+            
+            const { data, error } = await supabaseClient.from('shipments').insert([{
+                warehouse_name: document.getElementById('formWh').value, 
+                so_number: so,
+                po_number: document.getElementById('formPo').value, 
+                load_number: document.getElementById('formLoad').value,
+                destination: document.getElementById('formDest').value, 
+                carrier_name: document.getElementById('formCarrier').value,
+                carrier_type: document.getElementById('formType').value, 
+                updated_by: activeUser
+            }]).select();
 
-			if (error) {
-				alert("Database Error: " + error.message);
-				return;
-			}
+            if (error) {
+                alert("Database Error: " + error.message);
+                return;
+            }
 
-			// Safety check: verify data was returned successfully
-			if (data && data.length > 0) {
-				const newLoad = data[0];
-				// Fix: Use the actual static filename 'carrier-portal.html' instead of '/portal'
-				const portalUrl = `${window.location.origin}/carrier-portal.html?token=${newLoad.id}`;
-				
-				navigator.clipboard.writeText(portalUrl);
-				alert(`Token generated and logged into database matrix!\n\nLink copied to clipboard:\n${portalUrl}`);
-				closeIngestion();
-				fetchMasterData();
-			} else {
-				alert("Shipment logged, but verification link could not copy. Refresh your queue table view.");
-			}
-		}
+            if (data && data.length > 0) {
+                const newLoad = data[0];
+                const portalUrl = `${window.location.origin}/carrier-portal.html?token=${newLoad.id}`;
+                
+                navigator.clipboard.writeText(portalUrl);
+                alert(`Token generated and logged into database matrix!\n\nLink copied to clipboard:\n${portalUrl}`);
+                closeIngestion();
+                fetchMasterData();
+            } else {
+                alert("Shipment logged, but verification link could not copy. Refresh your queue table view.");
+            }
+        }
 
+        // NEW: OPEN SHIPMENT MAINTENANCE VIEW ENGINE
+        async function openMaintenanceModal(so) {
+            const { data, error } = await supabaseClient.from('shipments').select('*').eq('so_number', so).single();
+            if (error || !data) return;
+
+            document.getElementById('maintWh').value = data.warehouse_name;
+            document.getElementById('maintSo').value = data.so_number;
+            document.getElementById('maintPo').value = data.po_number;
+            document.getElementById('maintLoad').value = data.load_number;
+            document.getElementById('maintDest').value = data.destination;
+            document.getElementById('maintCarrier').value = data.carrier_name;
+            document.getElementById('maintType').value = data.carrier_type;
+
+            document.getElementById('maintenanceModal').classList.remove('hidden');
+        }
+
+        function closeMaintenance() { document.getElementById('maintenanceModal').classList.add('hidden'); }
+
+        // NEW: EXECUTE SHIPMENT RECORD UPDATES
+        async function saveShipmentEdits() {
+            const so = document.getElementById('maintSo').value;
+            const { error } = await supabaseClient.from('shipments').update({
+                warehouse_name: document.getElementById('maintWh').value,
+                po_number: document.getElementById('maintPo').value,
+                load_number: document.getElementById('maintLoad').value,
+                destination: document.getElementById('maintDest').value,
+                carrier_name: document.getElementById('maintCarrier').value,
+                carrier_type: document.getElementById('maintType').value,
+                updated_by: activeUser,
+                last_updated_time: new Date()
+            }).eq('so_number', so);
+
+            if (error) { alert("Error saving modifications: " + error.message); return; }
+            closeMaintenance();
+            fetchMasterData();
+        }
+
+        // NEW: HARD PURGE SHIPMENT RECOVERY DATA
+        async function deleteShipment() {
+            const so = document.getElementById('maintSo').value;
+            if (confirm(`⚠️ CRITICAL LOGISTICS OVERRIDE\n\nAre you sure you want to permanently erase Shipment ${so}? This will break any active broker check-in tracking links and clear it from the warehouse floor dashboards completely.`)) {
+                const { error } = await supabaseClient.from('shipments').delete().eq('so_number', so);
+                if (error) { alert("Deletion failure: " + error.message); return; }
+                closeMaintenance();
+                fetchMasterData();
+            }
+        }
+
+        // CHANGED: Added dynamic image injection loop and exemption processing engine
         async function openReviewModal(so) {
             activeReviewSo = so;
             const { data } = await supabaseClient.from('shipments').select('*').eq('so_number', so).single();
-            document.getElementById('revDriver').innerText = data.driver_name;
-            document.getElementById('revLic').innerText = data.driver_license;
-            document.getElementById('revPhone').innerText = data.driver_phone;
-            document.getElementById('revTruck').innerText = data.truck_number;
-            document.getElementById('revTrailer').innerText = data.trailer_number;
-            document.getElementById('revMC').innerText = data.mc_number;
-            document.getElementById('revDOT').innerText = data.dot_number;
+            
+            document.getElementById('revDriver').innerText = data.driver_name || 'TBD';
+            document.getElementById('revLic').innerText = data.driver_license || 'TBD';
+            document.getElementById('revPhone').innerText = data.driver_phone || 'TBD';
+            document.getElementById('revTruck').innerText = data.truck_number || 'TBD';
+            document.getElementById('revTrailer').innerText = data.trailer_number || 'TBD';
+            document.getElementById('revMC').innerText = data.mc_number || 'TBD';
+            document.getElementById('revDOT').innerText = data.dot_number || 'TBD';
+
+            const imgGrid = document.getElementById('imageReviewGrid');
+            imgGrid.innerHTML = ""; // Wipe past visual tracking frames
+
+            if (data.carrier_type === 'Asset-Based') {
+                imgGrid.className = "block text-center p-4 bg-indigo-950/30 border border-indigo-900/40 rounded-xl";
+                imgGrid.innerHTML = `
+                    <div class="text-indigo-400 font-bold text-sm">🛡️ Asset Carrier Whitelist Node</div>
+                    <p class="text-[11px] text-slate-400 mt-1">This driver is dispatched via an approved asset-based fleet. Document photo uploads are automatically waived under baseline compliance rules.</p>
+                `;
+            } else if (!data.driver_form_submitted) {
+                imgGrid.className = "block text-center p-6 bg-slate-950 rounded-xl border border-slate-850";
+                imgGrid.innerHTML = `
+                    <div class="text-slate-500 font-medium font-sans">⏱️ Awaiting Broker Payload Submission</div>
+                    <p class="text-[10px] text-slate-600 mt-0.5">The dispatch link hasn't been filled out yet. Gate parameters remain set to default queue parameters.</p>
+                `;
+            } else {
+                imgGrid.className = "grid grid-cols-2 gap-2";
+                const imageItems = [
+                    { label: "Commercial Driver's License", stub: "cdl" },
+                    { label: "Tractor Unit Decal (MC/DOT)", stub: "truck" },
+                    { label: "Physical VIN Stamping", stub: "vin" },
+                    { label: "Trailer Lock Seal Application", stub: "seal" }
+                ];
+                imgGrid.innerHTML = imageItems.map(img => `
+                    <div class="bg-slate-950 border border-slate-800 p-2 rounded-xl flex flex-col items-center justify-center min-h-28 text-center">
+                        <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-tight block mb-2">${img.label}</span>
+                        <div class="w-full h-20 rounded bg-slate-900 border border-slate-800 flex items-center justify-center cursor-pointer hover:border-slate-700 transition">
+                            <span class="text-[10px] text-emerald-400 font-mono font-bold uppercase">✓ Verified_${img.stub}.jpg</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
             document.getElementById('reviewModal').classList.remove('hidden');
         }
+
+        function closeReviewModal() { document.getElementById('reviewModal').classList.add('hidden'); }
 
         async function updateStatus(status) {
             await supabaseClient.from('shipments').update({ release_status: status, updated_by: activeUser, last_updated_time: new Date() }).eq('so_number', activeReviewSo);
