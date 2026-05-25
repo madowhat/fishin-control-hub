@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Fishin' Company - Outbound Control Hub</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #0b0f19; }
@@ -15,13 +16,27 @@
 </head>
 <body class="text-slate-200 antialiased min-h-screen flex flex-col">
 
+    <div id="warehouseLoginOverlay" class="fixed inset-0 bg-[#0b0f19] z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-sm w-full space-y-4 shadow-2xl">
+            <div class="text-center">
+                <div class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black mx-auto text-xl shadow-lg shadow-indigo-950/50 mb-3">F</div>
+                <h2 class="text-xl font-bold text-white">3PL Terminal Gate Validation</h2>
+                <p class="text-xs text-slate-400 mt-1">Enter your assigned terminal passcode to open live outbound monitors.</p>
+            </div>
+            <div class="space-y-3 pt-2">
+                <input type="password" id="warehousePass" placeholder="e.g. Baltimore4568" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-center font-bold tracking-widest text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase">
+                <button onclick="handleWarehouseLogin()" class="w-full py-3 bg-indigo-600 font-bold rounded-xl text-sm text-white hover:bg-indigo-700 transition cursor-pointer shadow-md shadow-indigo-950/30">Authorize Access Terminal</button>
+            </div>
+        </div>
+    </div>
+
     <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-xl">
         <div class="flex items-center gap-3.5">
             <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-extrabold tracking-wider shadow-md shadow-indigo-900/40">F</div>
             <div>
                 <div class="flex items-center gap-2">
                     <h1 class="text-lg font-bold tracking-tight text-white">The Fishin' Company</h1>
-                    <span class="text-[10px] font-semibold bg-indigo-950 text-indigo-400 border border-indigo-800/60 px-2 py-0.5 rounded-full uppercase tracking-wider">Phase 1 Control</span>
+                    <span id="facilityBadge" class="text-[10px] font-semibold bg-indigo-950 text-indigo-400 border border-indigo-800/60 px-2 py-0.5 rounded-full uppercase tracking-wider">Terminal Dispatch</span>
                 </div>
                 <p class="text-xs text-slate-400 mt-0.5">Real-Time Terminal Load Release & Fraud Prevention Control Hub</p>
             </div>
@@ -30,23 +45,20 @@
         <div class="flex items-center gap-6 text-xs bg-slate-950/60 border border-slate-800 rounded-xl p-3 w-full md:w-auto justify-between md:justify-start">
             <div class="flex items-center gap-2.5">
                 <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span class="text-slate-400">Date: <strong id="liveDateDisplay" class="text-slate-200 font-mono">May 23, 2026</strong></span>
+                <span class="text-slate-400">Date: <strong id="liveDateDisplay" class="text-slate-200 font-mono">May 25, 2026</strong></span>
             </div>
             <div class="text-right border-l border-slate-800 pl-4">
                 <span class="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Last Sync</span>
-                <span id="syncTime" class="font-mono text-slate-300 font-medium">11:15:18</span>
+                <span id="syncTime" class="font-mono text-slate-300 font-medium">10:19:43</span>
             </div>
         </div>
     </header>
 
     <section class="bg-slate-900/40 border-b border-slate-800/60 px-6 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        
         <div class="flex flex-wrap items-center gap-4">
             <div class="bg-slate-950 p-1 rounded-xl border border-slate-800 flex gap-1">
-                <button onclick="changeDay('today')" id="day-today" class="px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer bg-indigo-600 text-white shadow-xs">Today</button>
-                <button onclick="changeDay('tomorrow')" id="day-tomorrow" class="px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer text-slate-400 hover:text-slate-200">Tomorrow</button>
+                <button onclick="changeDay('today')" id="day-today" class="px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer bg-indigo-600 text-white shadow-xs">Scheduled Queue</button>
             </div>
-
             <div class="flex items-center gap-1.5 border-l border-slate-800 pl-4">
                 <button onclick="filterType('all')" id="filter-all" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white border border-slate-700 cursor-pointer transition">All Shipments</button>
                 <button onclick="filterType('exceptions')" id="filter-exceptions" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-slate-400 border border-slate-800 hover:text-white cursor-pointer transition">⚠️ Exceptions Only</button>
@@ -63,20 +75,18 @@
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-slate-950 text-slate-400 text-[11px] font-bold uppercase tracking-wider border-b border-slate-800">
-                        <th class="py-4 px-4 w-24">Pickup</th>
-                        <th class="py-4 px-4 w-28">Sales Order (SO#)</th>
-                        <th class="py-4 px-4 w-28">Customer PO#</th>
-                        <th class="py-4 px-4 w-28">Shippers Edge Load#</th>
-                        <th class="py-4 px-4 w-44">Destination</th>
-                        <th class="py-4 px-4">Carrier Name & Type</th>
-                        <th class="py-4 px-4 w-32">Driver Info</th>
-                        <th class="py-4 px-4 w-60">Release Status</th>
+                        <th class="py-4 px-4 w-44">Shippers Edge Load# (ID)</th>
+                        <th class="py-4 px-4 w-36">Confirmation #</th>
+                        <th class="py-4 px-4 w-36">Sales Order (SO#)</th>
+                        <th class="py-4 px-4">Destination Target Address</th>
+                        <th class="py-4 px-4 w-52">Carrier Name & Type</th>
+                        <th class="py-4 px-4 w-36">Driver Info</th>
+                        <th class="py-4 px-4 w-60 text-center">Operational Release Status</th>
                         <th class="py-4 px-4 w-40">Documents Status</th>
-                        <th class="py-4 px-4">Audit Footprint</th>
+                        <th class="py-4 px-4 w-36">Audit Trace</th>
                     </tr>
                 </thead>
-                <tbody id="dashboardBody" class="divide-y divide-slate-800/70 text-sm">
-                    </tbody>
+                <tbody id="dashboardBody" class="divide-y divide-slate-800/70 text-sm"></tbody>
             </table>
         </div>
     </main>
@@ -85,7 +95,7 @@
         <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-6">
             <div class="flex justify-between items-start">
                 <div>
-                    <h3 id="modalSoNumber" class="text-lg font-bold text-white">SO Details</h3>
+                    <h3 id="modalLoadNumber" class="text-lg font-bold text-white">Load Details</h3>
                     <p id="modalCarrier" class="text-xs text-slate-400 mt-0.5">Carrier Log Parameters</p>
                 </div>
                 <button onclick="closeModal()" class="text-slate-400 hover:text-white text-sm font-bold bg-slate-800 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer">&times;</button>
@@ -93,14 +103,13 @@
             
             <div id="modalExceptionBox" class="p-4 bg-rose-950/40 border border-rose-900/60 rounded-xl space-y-1 hidden">
                 <span class="text-[10px] font-bold text-rose-400 uppercase tracking-wider block">Active Gate Exception Block</span>
-                <p id="modalExceptionReason" class="text-xs font-semibold text-rose-200">Exception reason here</p>
-                <p id="modalNextAction" class="text-xs text-slate-400 mt-1">Next Action: Action parameters</p>
+                <p id="modalExceptionReason" class="text-xs font-semibold text-rose-200">Exception parameters flagged.</p>
+                <p id="modalNextAction" class="text-xs text-slate-400 mt-1">Next Action: Awaiting Admin overrides.</p>
             </div>
 
             <div class="space-y-3">
                 <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Required Compliance Checkpoints</h4>
-                <div id="modalChecklist" class="space-y-2 text-xs">
-                    </div>
+                <div id="modalChecklist" class="space-y-2 text-xs"></div>
             </div>
 
             <div class="pt-2 border-t border-slate-800 flex justify-end">
@@ -114,7 +123,7 @@
             <div class="flex justify-between items-start">
                 <div>
                     <h3 class="text-lg font-bold text-white">Verified Driver Profile</h3>
-                    <p id="driverModalSo" class="text-xs text-indigo-400 font-mono mt-0.5">SO#</p>
+                    <p id="driverModalLoad" class="text-xs text-indigo-400 font-mono mt-0.5">Load ID</p>
                 </div>
                 <button onclick="closeDriverModal()" class="text-slate-400 hover:text-white text-sm font-bold bg-slate-800 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer">&times;</button>
             </div>
@@ -152,8 +161,7 @@
 
             <div class="space-y-2">
                 <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Driver's License Document Photo</h4>
-                <div id="driverPhotoContainer" class="w-full h-44 bg-slate-950 rounded-xl border border-slate-800 flex flex-col items-center justify-center text-center p-4">
-                    </div>
+                <div id="driverPhotoContainer" class="w-full h-44 bg-slate-950 rounded-xl border border-slate-800 flex flex-col items-center justify-center text-center p-4"></div>
             </div>
 
             <div class="pt-2 border-t border-slate-800 flex justify-end">
@@ -163,132 +171,167 @@
     </div>
 
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        let activeWarehouseRoute = urlParams.get('warehouse') || 'baltimore';
-
-        let activeDayFilter = 'today';
+        const supabaseClient = supabase.createClient("https://xknhqscsusfuhodujajy.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhrbmhxc2NzdXNmdWhvZHVqYWp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NDU5MjMsImV4cCI6MjA5NTEyMTkyM30.IqQ_WeKRfg5EO2y8rbn7MAUT1vSMCS-6fIxC2M1oTGw");
+        
+        let currentTerminalFacility = "";
         let activeTypeFilter = 'all';
+        let expandedLoads = new Set();
+        let shipmentDataCache = [];
 
-        // Updated mock database array containing equipment identifiers, MC numbers, and DOT numbers
-        const mockMasterDatabase = [
-            {
-                warehouse: "baltimore", day: "today", pickup_time: "04:30", so_number: "SO211261", po_number: "PO-99381A", load_number: "625335926",
-                destination: "Merchants Terminal / MD", carrier_name: "Shaffer Trucking", carrier_type: "Asset-Based", 
-                driver_name: "Jeffery Sheets", driver_license: "922117063", driver_phone: "720-317-8539",
-                truck_number: "48668", trailer_number: "TBD", mc_number: "126118", dot_number: "073705",
-                release_status: "APPROVED TO LOAD", docs_status: { driver_form: true, bol: true, photos: "Exempt" },
-                exception_reason: "", next_action: "", last_updated: "2026-05-23 10:12", updated_by: "TMS_System"
-            },
-            {
-                warehouse: "baltimore", day: "today", pickup_time: "06:15", so_number: "SO211340", po_number: "WMT-48810", load_number: "625336104",
-                destination: "Walmart DC 6024 / PA", carrier_name: "Crossroads Brokerage", carrier_type: "Broker", 
-                driver_name: "Marcus Vance", driver_license: "DL-8821095", driver_phone: "410-555-0192",
-                truck_number: "TRK-9011", trailer_number: "TRL-5302", mc_number: "992104", dot_number: "2209144",
-                release_status: "PENDING – DRIVER NOT VERIFIED", docs_status: { driver_form: true, bol: true, photos: false }, 
-                exception_reason: "Driver verification uploads incomplete at gate check.",
-                next_action: "Waiting on broker to re-upload clear photos via portal link.", last_updated: "2026-05-23 11:24", updated_by: "J. Bernstein (Fishin)"
-            },
-            {
-                warehouse: "baltimore", day: "tomorrow", pickup_time: "05:00", so_number: "SO211590", po_number: "WMT-77192", load_number: "625337881",
-                destination: "Walmart DC 4011 / VA", carrier_name: "Swift Transport", carrier_type: "Asset-Based", 
-                driver_name: "Sarah Jenkins", driver_license: "DL-4412093", driver_phone: "540-331-9844",
-                truck_number: "5512", trailer_number: "5309", mc_number: "110294", dot_number: "088214",
-                release_status: "APPROVED TO LOAD", docs_status: { driver_form: true, bol: true, photos: "Exempt" },
-                exception_reason: "", next_action: "", last_updated: "2026-05-23 11:00", updated_by: "TMS_System"
-            },
-            {
-                warehouse: "baltimore", day: "tomorrow", pickup_time: "08:30", so_number: "SO211612", po_number: "PO-00129B", load_number: "625338002",
-                destination: "Safeway Stores / MD", carrier_name: "G&D Logistics Broker", carrier_type: "Broker", 
-                driver_name: "TBD", driver_license: "TBD", driver_phone: "TBD",
-                truck_number: "TBD", trailer_number: "TBD", mc_number: "882104", dot_number: "3110925",
-                release_status: "PENDING – DRIVER NOT VERIFIED", docs_status: { driver_form: false, bol: true, photos: false }, 
-                exception_reason: "Awaiting incoming driver self-service registration details.", next_action: "Broker emailed link to input driver assignment parameters.",
-                last_updated: "2026-05-23 09:15", updated_by: "System Monitor"
+        // Single password lookup map schema matrix
+        const terminalCredentials = {
+            "BALTIMORE4568": "Baltimore",
+            "MOBILE1122": "Mobile",
+            "BURIEN9933": "Burien"
+        };
+
+        async function checkTerminalSession() {
+            const cachedToken = localStorage.getItem('fishin_terminal_clearance');
+            const urlParams = new URLSearchParams(window.location.search);
+            const targetParam = urlParams.get('warehouse');
+
+            if (cachedToken && terminalCredentials[cachedToken]) {
+                currentTerminalFacility = terminalCredentials[cachedToken];
+                
+                // Enforce route synchronization
+                if (!targetParam || targetParam.toLowerCase() !== currentTerminalFacility.toLowerCase()) {
+                    window.history.replaceState(null, '', `?warehouse=${currentTerminalFacility.toLowerCase()}`);
+                }
+                
+                document.getElementById('warehouseLoginOverlay').classList.add('hidden');
+                document.getElementById('facilityBadge').innerText = `${currentTerminalFacility} Hub`;
+                initializeTerminalLoop();
             }
-        ];
+        }
 
-        function renderTable() {
+        async function handleWarehouseLogin() {
+            const rawInput = document.getElementById('warehousePass').value.trim().toUpperCase();
+            
+            if (terminalCredentials[rawInput]) {
+                localStorage.setItem('fishin_terminal_clearance', rawInput);
+                currentTerminalFacility = terminalCredentials[rawInput];
+                window.history.replaceState(null, '', `?warehouse=${currentTerminalFacility.toLowerCase()}`);
+                
+                document.getElementById('warehouseLoginOverlay').classList.add('hidden');
+                document.getElementById('facilityBadge').innerText = `${currentTerminalFacility} Hub`;
+                initializeTerminalLoop();
+            } else {
+                alert("Invalid warehouse terminal gate authentication key code.");
+            }
+        }
+
+        function initializeTerminalLoop() {
+            fetchTerminalQueue();
+            supabaseClient.channel('gate_room').on('postgres_changes', {event:'*', schema:'public', table:'shipments'}, fetchTerminalQueue).subscribe();
+        }
+
+        async function fetchTerminalQueue() {
+            const { data } = await supabaseClient
+                .from('shipments')
+                .select('*')
+                .eq('warehouse_name', currentTerminalFacility)
+                .order('created_at', {ascending: false});
+
+            shipmentDataCache = data || [];
+            renderTerminalMatrix();
+        }
+
+        function renderTerminalMatrix() {
             const tbody = document.getElementById('dashboardBody');
             tbody.innerHTML = "";
 
-            let dataPool = mockMasterDatabase.filter(row => row.warehouse.toLowerCase() === activeWarehouseRoute.toLowerCase());
-            dataPool = dataPool.filter(row => row.day === activeDayFilter);
+            let filteredPool = shipmentDataCache;
+            if (activeTypeFilter === 'exceptions') {
+                filteredPool = filteredPool.filter(row => row.release_status.includes('HOLD') || row.release_status.includes('AWAITING'));
+            }
 
-            dataPool = dataPool.filter(row => {
-                if (activeTypeFilter === 'exceptions') return row.release_status.includes('HOLD') || row.release_status.includes('PENDING');
-                return true;
-            });
-
-            if(dataPool.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" class="py-12 text-center text-slate-500 font-medium text-xs bg-slate-900/50">No outbound shipments scheduled for this filtered selection view.</td></tr>`;
+            if (filteredPool.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="py-12 text-center text-slate-500 font-medium text-xs bg-slate-900/50">No outbound active shipments logged for this terminal selector.</td></tr>`;
                 return;
             }
 
-            dataPool.forEach(row => {
+            filteredPool.forEach(row => {
+                const stops = row.stops_json || [];
+                const isMultiStop = stops.length > 1;
+                const isExpanded = expandedLoads.has(row.load_number);
+
                 let statusBg = row.release_status.startsWith('APPROVED') ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800/60' :
                                row.release_status.startsWith('HOLD') ? 'bg-rose-950/80 text-rose-400 border-rose-800/60 animate-pulse' :
                                'bg-amber-950/80 text-amber-400 border-amber-800/60';
 
                 const docSummary = `
                     <div class="flex gap-1.5 font-mono text-[10px]">
-                        <span class="${row.docs_status.driver_form ? 'text-emerald-400' : 'text-slate-500'}" title="Driver Form">FORM</span>
+                        <span class="${row.driver_form_submitted ? 'text-emerald-400' : 'text-slate-500'}" title="Driver Form">FORM</span>
                         <span class="text-slate-700">|</span>
-                        <span class="${row.docs_status.bol ? 'text-emerald-400' : 'text-slate-500'}" title="BOL">BOL</span>
+                        <span class="${row.bol_available ? 'text-emerald-400' : 'text-slate-500'}" title="BOL">BOL</span>
                         <span class="text-slate-700">|</span>
-                        <span class="${row.docs_status.photos === 'Exempt' ? 'text-blue-400' : row.docs_status.photos ? 'text-emerald-400' : 'text-rose-500'}" title="Photos">
-                            ${row.docs_status.photos === 'Exempt' ? 'EXEMPT' : 'PHOTOS'}
+                        <span class="${row.carrier_type === 'Asset-Based' ? 'text-blue-400' : row.photos_submitted ? 'text-emerald-400' : 'text-rose-500'}" title="Photos">
+                            ${row.carrier_type === 'Asset-Based' ? 'EXEMPT' : 'PHOTOS'}
                         </span>
                     </div>
                 `;
 
+                // Interactive Expand Collapse Logic Construction Block
+                let soDisplay = "", destDisplay = "";
+                if (isMultiStop && !isExpanded) {
+                    soDisplay = `<span class="text-amber-500 font-bold bg-amber-950/30 px-1.5 py-0.5 rounded text-[10px] uppercase border border-amber-900/40">📦 Multi-Stop (${stops.length} Drops)</span>`;
+                    destDisplay = `<span class="text-slate-400 italic">Click Row Container to Expand Target Paths</span>`;
+                } else {
+                    soDisplay = stops.map(s => `<div class="font-mono text-slate-300 py-0.5">${s.so_number || '---'}</div>`).join('');
+                    destDisplay = stops.map(s => `<div class="text-slate-300 font-medium py-0.5 truncate max-w-[320px]" title="${s.destination}">${s.destination || '---'}</div>`).join('');
+                }
+
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-800/40 transition align-middle";
+                tr.className = `hover:bg-slate-800/40 transition align-middle ${isMultiStop ? 'cursor-pointer' : ''}`;
+                
+                tr.onclick = (e) => {
+                    if (e.target.classList.contains('maint-modal-trigger')) return;
+                    if (isMultiStop) {
+                        if (expandedLoads.has(row.load_number)) expandedLoads.delete(row.load_number);
+                        else expandedLoads.add(row.load_number);
+                        renderTerminalMatrix();
+                    }
+                };
+
                 tr.innerHTML = `
-                    <td class="py-4 px-4 font-mono font-bold text-white">${row.pickup_time}</td>
-                    <td class="py-4 px-4 font-mono text-indigo-400 font-semibold cursor-pointer hover:underline" onclick="openDrilldown('${row.so_number}')">${row.so_number}</td>
-                    <td class="py-4 px-4 font-mono text-xs text-slate-300">${row.po_number}</td>
-                    <td class="py-4 px-4 font-mono text-xs text-slate-300">${row.load_number}</td>
-                    <td class="py-4 px-4 text-xs font-medium text-slate-300">${row.destination}</td>
+                    <td class="py-4 px-4 font-mono font-black text-indigo-400 text-xs hover:underline maint-modal-trigger" onclick="openDrilldown('${row.load_number}')">
+                        ${isMultiStop ? (isExpanded ? '▼ ' : '▶ ') : ''}${row.load_number}
+                    </td>
+                    <td class="py-4 px-4 font-mono text-slate-200 font-bold text-xs">${row.conf_number}</td>
+                    <td class="py-4 px-4">${soDisplay}</td>
+                    <td class="py-4 px-4 text-xs">${destDisplay}</td>
                     <td class="py-4 px-4">
                         <div class="font-medium text-slate-200">${row.carrier_name}</div>
                         <div class="text-[10px] text-slate-500 font-mono">${row.carrier_type}</div>
                     </td>
                     <td class="py-4 px-4">
-                        <button onclick="openDriverModal('${row.so_number}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-medium rounded-md text-xs cursor-pointer transition">
-                            🔍 View Driver
+                        <button onclick="event.stopPropagation(); openDriverModal('${row.load_number}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-medium rounded-md text-xs cursor-pointer transition text-center w-full">
+                            🔍 Profile
                         </button>
                     </td>
-                    <td class="py-4 px-4"><span class="block px-3 py-1.5 text-center text-xs font-bold rounded-lg border ${statusBg}">${row.release_status}</span></td>
+                    <td class="py-4 px-4 text-center"><span class="block px-3 py-1.5 text-[11px] font-black tracking-wider rounded-lg border uppercase ${statusBg}">${row.release_status}</span></td>
                     <td class="py-4 px-4">${docSummary}</td>
-                    <td class="py-4 px-4 text-[11px] text-slate-500 space-y-0.5 font-mono">
-                        <div class="text-slate-400">👤 ${row.updated_by}</div>
-                        <div>⏱️ ${row.last_updated}</div>
+                    <td class="py-4 px-4 text-[10px] text-slate-500 space-y-0.5 font-mono">
+                        <div class="text-slate-400 truncate">👤 ${row.updated_by}</div>
+                        <div class="text-[9px]">⏱️ ${new Date(row.last_updated_time).toLocaleTimeString()}</div>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
-        function changeDay(day) {
-            activeDayFilter = day;
-            document.getElementById('day-today').className = day === 'today' ? "px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer bg-indigo-600 text-white shadow-xs" : "px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer text-slate-400 hover:text-slate-200";
-            document.getElementById('day-tomorrow').className = day === 'tomorrow' ? "px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer bg-indigo-600 text-white shadow-xs" : "px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer text-slate-400 hover:text-slate-200";
-            renderTable();
-        }
-
         function filterType(type) {
             activeTypeFilter = type;
             document.getElementById('filter-all').className = type === 'all' ? "px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white border border-slate-700 cursor-pointer transition" : "px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-slate-400 border border-slate-800 hover:text-white cursor-pointer transition";
             document.getElementById('filter-exceptions').className = type === 'exceptions' ? "px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white border border-slate-700 cursor-pointer transition" : "px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-slate-400 border border-slate-800 hover:text-white cursor-pointer transition";
-            renderTable();
+            renderTerminalMatrix();
         }
 
-        // CHANGED: Form populated dynamically with additional parameter sets (Truck, Trailer, MC, DOT)
-        function openDriverModal(soNumber) {
-            const load = mockMasterDatabase.find(l => l.so_number === soNumber);
+        function openDriverModal(loadNum) {
+            const load = shipmentDataCache.find(l => l.load_number === loadNum);
             if (!load) return;
 
-            document.getElementById('driverModalSo').innerText = `Reference SO: ${load.so_number}`;
+            document.getElementById('driverModalLoad').innerText = `Reference Load: ${load.load_number}`;
             document.getElementById('driverViewName').innerText = load.driver_name || 'TBD';
             document.getElementById('driverViewLicense').innerText = load.driver_license || 'TBD';
             document.getElementById('driverViewPhone').innerText = load.driver_phone || 'TBD';
@@ -299,22 +342,22 @@
 
             const photoContainer = document.getElementById('driverPhotoContainer');
             
-            if (load.docs_status.photos === 'Exempt') {
+            if (load.carrier_type === 'Asset-Based') {
                 photoContainer.innerHTML = `
-                    <div class="text-indigo-400 text-lg font-bold">🛡️ EXEMPT</div>
-                    <p class="text-[10px] text-slate-400 mt-1 max-w-xs">Approved Whitelisted Asset Carrier.<br>Physical ID photo documentation waived.</p>
+                    <div class="text-indigo-400 text-lg font-bold">🛡️ EXEMPT ASSET ASYNC</div>
+                    <p class="text-[10px] text-slate-400 mt-1 max-w-xs">Approved Whitelisted Core Asset Carrier.<br>Physical photo document parameters waived.</p>
                 `;
-            } else if (load.docs_status.driver_form === false || load.driver_name === 'TBD') {
+            } else if (!load.driver_form_submitted || load.driver_name === 'TBD') {
                 photoContainer.innerHTML = `
                     <div class="text-slate-600 text-xl">📁</div>
-                    <p class="text-[11px] text-slate-500 mt-1">Awaiting dispatch document ingestion.</p>
+                    <p class="text-[11px] text-slate-500 mt-1">Awaiting dispatch self-service broker document submission.</p>
                 `;
             } else {
                 photoContainer.innerHTML = `
                     <div class="w-full h-full rounded-lg border border-slate-800 bg-slate-900 flex items-center justify-center">
                         <div class="text-center p-4">
-                            <span class="text-xs text-emerald-400 font-mono font-semibold block">✓ CDL_IMAGE_ATTACHED.PNG</span>
-                            <span class="text-[10px] text-slate-500 block mt-1">Click to expand document view</span>
+                            <span class="text-xs text-emerald-400 font-mono font-semibold block">✓ SYSTEM_CDL_IMAGE_ATTACHED.PNG</span>
+                            <span class="text-[10px] text-slate-500 block mt-1">Manifest Document Identity Locks Verified</span>
                         </div>
                     </div>
                 `;
@@ -325,37 +368,36 @@
 
         function closeDriverModal() { document.getElementById('driverModal').classList.add('hidden'); }
 
-        function openDrilldown(soNumber) {
-            const load = mockMasterDatabase.find(l => l.so_number === soNumber);
+        function openDrilldown(loadNum) {
+            const load = shipmentDataCache.find(l => l.load_number === loadNum);
             if (!load) return;
 
-            document.getElementById('modalSoNumber').innerText = `${load.so_number} Verification Breakdowns`;
+            document.getElementById('modalLoadNumber').innerText = `Load Asset ${load.load_number} Verification Metrics`;
             document.getElementById('modalCarrier').innerText = `${load.carrier_name} • ${load.carrier_type}`;
 
             const exceptionBox = document.getElementById('modalExceptionBox');
-            if (load.exception_reason) {
+            if (load.release_status === 'HOLD – DO NOT LOAD') {
                 exceptionBox.classList.remove('hidden');
-                document.getElementById('modalExceptionReason').innerText = `Reason: ${load.exception_reason}`;
-                document.getElementById('modalNextAction').innerText = `Next Action: ${load.next_action}`;
+                document.getElementById('modalExceptionReason').innerText = `Reason: ${load.exception_reason || 'Administrative Risk Freeze Triggered By HQ Tower.'}`;
+                document.getElementById('modalNextAction').innerText = `Next Action: ${load.next_action || 'Halt all dock doors immediately. Contact transportation coordinator.'}`;
             } else {
                 exceptionBox.classList.add('hidden');
             }
 
             const checklist = document.getElementById('modalChecklist');
             const checkpoints = [
-                { name: "Trailer Number Visible", ok: load.release_status.startsWith("APPROVED") },
-                { name: "Seal Applied (Door + Close-Up views)", ok: load.release_status.startsWith("APPROVED") },
-                { name: "Truck MC/DOT number registration", ok: true },
-                { name: "Tractor VIN Identification Match", ok: true },
-                { name: "Readable Commercial Driver's License (CDL)", ok: load.release_status.startsWith("APPROVED") },
-                { name: "Driver Headshot Photo facing Camera near Tractor", ok: load.release_status.startsWith("APPROVED") }
+                { name: "Outbound Security Seal Application Match", ok: load.release_status === "APPROVED TO LOAD" },
+                { name: "Truck MC/DOT Registration Matching MyCarrierPacket", ok: load.driver_form_submitted },
+                { name: "Tractor VIN Physical Stamping Inspection", ok: load.driver_form_submitted },
+                { name: "Readable Commercial Driver's License (CDL) verification", ok: load.driver_form_submitted },
+                { name: "Mandatory Target Reefer Coldchain Temp (-10°F CONT)", ok: true }
             ];
 
             checklist.innerHTML = checkpoints.map(cp => `
                 <div class="flex items-center justify-between p-2 bg-slate-950/40 rounded-lg border border-slate-800/80">
                     <span class="text-slate-300 font-medium">${cp.name}</span>
                     <span class="${cp.ok ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}">
-                        ${cp.ok ? '✓ verified' : '✖ missing'}
+                        ${cp.ok ? '✓ verified' : '✖ pending'}
                     </span>
                 </div>
             `).join('');
@@ -365,7 +407,7 @@
 
         function closeModal() { document.getElementById('detailModal').classList.add('hidden'); }
 
-        // CHANGED: Automatically calculates and displays the current calendar date inside the header monitor
+        // Live visual timing loops matching terminal variables
         const dateOptions = { year: 'numeric', month: 'long', day: 'numeric' };
         document.getElementById('liveDateDisplay').innerText = new Date().toLocaleDateString('en-US', dateOptions);
 
@@ -374,7 +416,8 @@
             document.getElementById('syncTime').innerText = now.toTimeString().split(' ')[0];
         }, 1000);
 
-        renderTable();
+        // Run security handshake sequence initialization
+        checkTerminalSession();
     </script>
 </body>
 </html>
