@@ -190,11 +190,33 @@
             } else { alert("Invalid warehouse terminal gate authentication key code."); }
         }
 
-        function initializeTerminalLoop() {
-            fetchTerminalQueue();
-            setInterval(updateTerminalClocks, 1000);
-            supabaseClient.channel('gate_room').on('postgres_changes', {event:'*', schema:'public', table:'shipments'}, fetchTerminalQueue).subscribe();
-        }
+		function initializeTerminalLoop() {
+			// 1. Fire the initial data load right away
+			fetchTerminalQueue();
+			
+			// 2. Start the live clocks matching the warehouse timezone
+			setInterval(updateTerminalClocks, 1000);
+			
+			// 3. FIXED: Re-engineered real-time channel tracking with strict row filter hooks
+			supabaseClient
+				.channel('gate_room_sync')
+				.on(
+					'postgres_changes', 
+					{
+						event: '*', 
+						schema: 'public', 
+						table: 'shipments',
+						filter: `warehouse_name=eq.${currentTerminalFacility}` // <-- THE CRITICAL FIX
+					}, 
+					() => {
+						console.log("⚡ Real-time database delta detected. Syncing terminal queue...");
+						fetchTerminalQueue();
+					}
+				)
+				.subscribe((status) => {
+					console.log(`📡 Supabase stream connection state: ${status}`);
+				});
+		}
 
         function getWarehouseCurrentDateString(tz) {
             // Formats to exact ISO standard date string "YYYY-MM-DD" inside target timezone
