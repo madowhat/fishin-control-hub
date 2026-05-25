@@ -63,24 +63,24 @@
             </div>
 
             <div class="border-t border-slate-800 pt-3 space-y-3">
-                <h4 class="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Mandatory Photographic Verification Vault</h4>
+                <h4 class="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Photographic Verification Vault (Optional)</h4>
                 
                 <div class="space-y-2.5 bg-slate-950/60 p-3 rounded-xl border border-slate-850">
                     <div>
-                        <label class="block text-slate-400 text-[10px] font-medium mb-1">1) Truck Side View (Must show visible Carrier Decals, MC, & DOT)</label>
-                        <input type="file" id="photoTruck" accept="image/*" required class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
+                        <label class="block text-slate-400 text-[10px] font-medium mb-1">1) Truck Side View (MC, DOT, & Carrier Decals)</label>
+                        <input type="file" id="photoTruck" accept="image/*" class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
                     </div>
                     <div>
-                        <label class="block text-slate-400 text-[10px] font-medium mb-1">2) Tractor VIN Stamp (Close-up view of identification plate)</label>
-                        <input type="file" id="photoVin" accept="image/*" required class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
+                        <label class="block text-slate-400 text-[10px] font-medium mb-1">2) Tractor VIN Stamp (Identification plate view)</label>
+                        <input type="file" id="photoVin" accept="image/*" class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
                     </div>
                     <div>
-                        <label class="block text-slate-400 text-[10px] font-medium mb-1">3) Driver's Commercial License (Legible, un-blurred front photo)</label>
-                        <input type="file" id="photoCdl" accept="image/*" required class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
+                        <label class="block text-slate-400 text-[10px] font-medium mb-1">3) Driver's Commercial License (Legible front photo)</label>
+                        <input type="file" id="photoCdl" accept="image/*" class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
                     </div>
                     <div>
-                        <label class="block text-slate-400 text-[10px] font-medium mb-1">4) Driver Physical Face Photo (Clear front-facing profile image)</label>
-                        <input type="file" id="photoDriver" accept="image/*" required class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
+                        <label class="block text-slate-400 text-[10px] font-medium mb-1">4) Driver Physical Face Photo (Clear front profile view)</label>
+                        <input type="file" id="photoDriver" accept="image/*" class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
                     </div>
                 </div>
             </div>
@@ -90,17 +90,23 @@
     </div>
 
     <script>
-        // Central Cloud Storage Handlers
-        const supabase = supabase.createClient("https://xknhqscsusfuhodujajy.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhrbmhxc2NzdXNmdWhvZHVqYWp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NDU5MjMsImV4cCI6MjA5NTEyMTkyM30.IqQ_WeKRfg5EO2y8rbn7MAUT1vSMCS-6fIxC2M1oTGw");
+        const supabaseClient = supabase.createClient("https://xknhqscsusfuhodujajy.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhrbmhxc2NzdXNmdWhvZHVqYWp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NDU5MjMsImV4cCI6MjA5NTEyMTkyM30.IqQ_WeKRfg5EO2y8rbn7MAUT1vSMCS-6fIxC2M1oTGw");
         const urlParams = new URLSearchParams(window.location.search);
         const recordToken = urlParams.get('token');
 
         async function initPortal() {
             if(!recordToken) { alert("Missing operational tracking parameters."); return; }
 
-            // 🛠️ CRITICAL LOGISTICS FIX: Query using secure_token instead of record ID mapping
-            const { data, error } = await supabase.from('shipments').select('*').eq('secure_token', recordToken).single();
-            if (error || !data) { 
+            // DUAL-COMPATIBILITY LOOKUP FILTER: Searches secure_token first, then falls back to internal row id
+            let queryResult = await supabaseClient.from('shipments').select('*').eq('secure_token', recordToken);
+            
+            if (!queryResult.data || queryResult.data.length === 0) {
+                queryResult = await supabaseClient.from('shipments').select('*').eq('id', recordToken);
+            }
+
+            const data = queryResult.data ? queryResult.data[0] : null;
+
+            if (!data) { 
                 document.getElementById('portalFormCard').innerHTML = `<div class="text-rose-400 font-semibold text-center py-4">⚠️ Invalid or unrecognized entry link code parameters.</div>`;
                 return; 
             }
@@ -113,10 +119,10 @@
                 return;
             }
 
-            // Expose the core structural tracking labels
+            // Expose structural layout reference tracking metadata
             document.getElementById('manifestLoad').innerText = data.load_number || 'N/A';
             
-            // Map multi-stop nested JSON arrays down to plain view codes text loops seamlessly
+            // Render multi-stop nested JSON arrays down to plain view codes loops text
             if(data.stops_json && Array.isArray(data.stops_json)) {
                 document.getElementById('manifestSo').innerText = data.stops_json.map(s => s.so_number || '---').join(', ');
             } else {
@@ -124,11 +130,16 @@
             }
         }
 
-        // CONTROL INPUT MANIFEST CAPTURE LOOP
         document.getElementById('carrierForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            // Assemble input value states securely
+            // Detect if files were attached to selectively update flags on the admin side
+            const hasTruckPhoto = document.getElementById('photoTruck').files.length > 0;
+            const hasVinPhoto = document.getElementById('photoVin').files.length > 0;
+            const hasCdlPhoto = document.getElementById('photoCdl').files.length > 0;
+            const hasDriverPhoto = document.getElementById('photoDriver').files.length > 0;
+            const anyPhotosSubmitted = (hasTruckPhoto || hasVinPhoto || hasCdlPhoto || hasDriverPhoto);
+
             const payload = {
                 driver_name: document.getElementById('driverName').value.trim(),
                 driver_license: document.getElementById('driverLic').value.trim(),
@@ -138,13 +149,17 @@
                 mc_number: document.getElementById('mcNum').value.trim(),
                 dot_number: document.getElementById('dotNum').value.trim(),
                 driver_form_submitted: true,
-                photos_submitted: true, // Signals the admin board that file slots are complete
-                release_status: 'ACTION REQUIRED', // Flips rows amber on the corporate dashboard natively
+                photos_submitted: anyPhotosSubmitted, // Set to true if they provided at least one optional image
+                release_status: 'ACTION REQUIRED', // Turns row amber on internal dashboards instantly
                 last_updated_time: new Date().toISOString()
             };
 
-            // Database submission execute lane
-            const { error } = await supabase.from('shipments').update(payload).eq('secure_token', recordToken);
+            // Execute submission based on the verified token identifier routing match
+            const { data: fetchLoad } = await supabaseClient.from('shipments').select('load_number').eq('secure_token', recordToken);
+            let targetFilterColumn = 'secure_token';
+            if (!fetchLoad || fetchLoad.length === 0) { targetFilterColumn = 'id'; }
+
+            const { error } = await supabaseClient.from('shipments').update(payload).eq(targetFilterColumn, recordToken);
             
             if (error) {
                 alert("Database Submission Interrupted: " + error.message);
@@ -159,7 +174,6 @@
             }
         });
 
-        // Initialize execution on terminal landing
         initPortal();
     </script>
 </body>
