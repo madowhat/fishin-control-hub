@@ -72,19 +72,18 @@
     </section>
 
     <main class="flex-1 p-6 overflow-x-auto">
-        <div class="min-w-[1300px] bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+        <div class="min-w-[1200px] bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-slate-950 text-slate-400 text-[11px] font-bold uppercase tracking-wider border-b border-slate-800">
-                        <th class="py-4 px-4 w-24">Pickup Time</th>
-                        <th class="py-4 px-4 w-44">Shippers Edge Load# (ID)</th>
+                        <th class="py-4 px-4 w-32">Pickup</th>
+                        <th class="py-4 px-4 w-36">Load #</th>
                         <th class="py-4 px-4 w-36">Confirmation #</th>
-                        <th class="py-4 px-4 w-36">Sales Order (SO#)</th>
-                        <th class="py-4 px-4">Destination Target Address</th>
+                        <th class="py-4 px-4 w-36">SO#</th>
+                        <th class="py-4 px-4">Destination</th>
                         <th class="py-4 px-4 w-52">Carrier Name & Type</th>
                         <th class="py-4 px-4 w-36">Driver Info</th>
-                        <th class="py-4 px-4 w-60 text-center">Operational Release Status</th>
-                        <th class="py-4 px-4 w-40">Documents Status</th>
+                        <th class="py-4 px-4 w-60 text-center">release status</th>
                         <th class="py-4 px-4 w-36">Audit Trace</th>
                     </tr>
                 </thead>
@@ -154,7 +153,6 @@
         let expandedLoads = new Set();
         let shipmentDataCache = [];
 
-        // Geographic international facility timeline maps
         const warehouseTimezones = {
             "Baltimore": "America/New_York",
             "Mobile": "America/Chicago",
@@ -190,27 +188,16 @@
             } else { alert("Invalid warehouse terminal gate authentication key code."); }
         }
 
-		function initializeTerminalLoop() {
-			// 1. Fire the initial data fetch immediately when they log in
-			fetchTerminalQueue();
-			
-			// 2. Keep the local warehouse clock ticking every 1 second
-			setInterval(updateTerminalClocks, 1000);
-			
-			// 3. ⏱️ THE 2-SECOND POLLING HEARTBEAT
-			// This replaces the broken real-time stream entirely.
-			// It silently checks the database for updates every 2000 milliseconds (2 seconds).
-			setInterval(() => {
-				console.log("⏱️ Heartbeat tick: Fetching latest terminal queue matrix...");
-				fetchTerminalQueue();
-			}, 2000);
-		}
+        function initializeTerminalLoop() {
+            fetchTerminalQueue();
+            setInterval(updateTerminalClocks, 1000);
+            // ⏱️ Silent 2-second polling loop bypasses real-time streaming bugs completely
+            setInterval(fetchTerminalQueue, 2000);
+        }
 
         function getWarehouseCurrentDateString(tz) {
-            // Formats to exact ISO standard date string "YYYY-MM-DD" inside target timezone
             const options = { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' };
-            const dsl = new Intl.DateTimeFormat('en-CA', options).format(new Date());
-            return dsl; // Returns safe "YYYY-MM-DD" string
+            return new Intl.DateTimeFormat('en-CA', options).format(new Date());
         }
 
         async function fetchTerminalQueue() {
@@ -230,27 +217,42 @@
             const tz = warehouseTimezones[currentTerminalFacility] || "America/New_York";
             const warehouseTodayStr = getWarehouseCurrentDateString(tz);
             
-            // Calculate warehouse tomorrow string
             const todayDateObj = new Date(warehouseTodayStr + "T00:00:00");
-            todayDateObj.setDate(todayDateObj.getDate() + 1);
-            const warehouseTomorrowStr = todayDateObj.toISOString().split('T')[0];
+            const warehouseDayOfWeek = todayDateObj.getDay(); // 5 = Friday
 
-            let filteredPool = shipmentDataCache.filter(row => {
-                const rowDateStr = row.pickup_date; // "YYYY-MM-DD" from database
-                if (activeDayFilter === 'today') return rowDateStr === warehouseTodayStr;
-                if (activeDayFilter === 'tomorrow') return rowDateStr === warehouseTomorrowStr;
-                return true;
-            });
+            // Generate flexible upcoming multi-day comparison constraints
+            let matchDatesArray = [];
+            if (activeDayFilter === 'today') {
+                matchDatesArray.push(warehouseTodayStr);
+            } else if (activeDayFilter === 'tomorrow') {
+                if (warehouseDayOfWeek === 5) {
+                    // It is Friday: Tomorrow expands to include Sat, Sun, and Mon rolling manifests
+                    for (let i = 1; i <= 3; i++) {
+                        const tempObj = new Date(warehouseTodayStr + "T00:00:00");
+                        tempObj.setDate(tempObj.getDate() + i);
+                        matchDatesArray.push(tempObj.toISOString().split('T')[0]);
+                    }
+                } else {
+                    // Standard Mid-Week operation: Tomorrow stays strictly next calendar day
+                    todayDateObj.setDate(todayDateObj.getDate() + 1);
+                    matchDatesArray.push(todayDateObj.toISOString().split('T')[0]);
+                }
+            }
+
+            let filteredPool = shipmentDataCache.filter(row => matchDatesArray.includes(row.pickup_date));
 
             if (activeTypeFilter === 'exceptions') {
                 filteredPool = filteredPool.filter(row => row.release_status.includes('HOLD') || row.release_status.includes('AWAITING'));
             }
 
-            // Chronological sort based on 24-hour pickup clock value string
-            filteredPool.sort((a,b) => a.pickup_time.localeCompare(b.pickup_time));
+            filteredPool.sort((a,b) => {
+                const dateCompare = a.pickup_date.localeCompare(b.pickup_date);
+                if (dateCompare !== 0) return dateCompare;
+                return a.pickup_time.localeCompare(b.pickup_time);
+            });
 
             if (filteredPool.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" class="py-12 text-center text-slate-500 font-medium text-xs bg-slate-900/50">No outbound active shipments scheduled for this date channel.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="py-12 text-center text-slate-500 font-medium text-xs bg-slate-900/50">No outbound active shipments scheduled for this timeline.</td></tr>`;
                 return;
             }
 
@@ -263,25 +265,17 @@
                                row.release_status.startsWith('HOLD') ? 'bg-rose-950/80 text-rose-400 border-rose-800/60 animate-pulse' :
                                'bg-amber-950/80 text-amber-400 border-amber-800/60';
 
-                const docSummary = `
-                    <div class="flex gap-1.5 font-mono text-[10px]">
-                        <span class="${row.driver_form_submitted ? 'text-emerald-400' : 'text-slate-500'}" title="Driver Form">FORM</span>
-                        <span class="text-slate-700">|</span>
-                        <span class="${row.bol_available ? 'text-emerald-400' : 'text-slate-500'}" title="BOL">BOL</span>
-                        <span class="text-slate-700">|</span>
-                        <span class="${row.carrier_type === 'Asset-Based' ? 'text-blue-400' : row.photos_submitted ? 'text-emerald-400' : 'text-rose-500'}" title="Photos">
-                            ${row.carrier_type === 'Asset-Based' ? 'EXEMPT' : 'PHOTOS'}
-                        </span>
-                    </div>
-                `;
+                // Calculate consistent 3-letter uppercase weekday tag based on date
+                const rowDateObj = new Date(row.pickup_date + "T00:00:00");
+                const weekdayString = rowDateObj.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
 
                 let soDisplay = "", destDisplay = "";
                 if (isMultiStop && !isExpanded) {
-                    soDisplay = `<span class="text-amber-500 font-bold bg-amber-950/30 px-1.5 py-0.5 rounded text-[10px] uppercase border border-amber-900/40">📦 Multi-Stop (${stops.length} Drops)</span>`;
-                    destDisplay = `<span class="text-slate-400 italic text-[11px]">Click Row Container to Expand Target Paths</span>`;
+                    soDisplay = `<span class="text-amber-500 font-bold bg-amber-950/30 px-1.5 py-0.5 rounded text-[10px] uppercase border border-amber-900/40">📦 Multi-Stop (${stops.length})</span>`;
+                    destDisplay = `<span class="text-slate-400 italic text-[11px]">Click Row to Expand Drops</span>`;
                 } else {
                     soDisplay = stops.map(s => `<div class="font-mono text-slate-300 py-0.5">${s.so_number || '---'}</div>`).join('');
-                    destDisplay = stops.map(s => `<div class="text-slate-300 font-medium py-0.5 truncate max-w-[320px]" title="${s.destination}">${s.destination || '---'}</div>`).join('');
+                    destDisplay = stops.map(s => `<div class="text-slate-300 font-medium py-0.5 truncate max-w-[350px]" title="${s.destination}">${s.destination || '---'}</div>`).join('');
                 }
 
                 const tr = document.createElement('tr');
@@ -297,8 +291,11 @@
                 };
 
                 tr.innerHTML = `
-                    <td class="py-4 px-4 font-mono font-bold text-indigo-400 text-sm">${row.pickup_time}</td>
-                    <td class="py-4 px-4 font-mono font-black text-slate-100 text-xs hover:underline maint-modal-trigger" onclick="openDrilldown('${row.load_number}')">
+                    <td class="py-4 px-4 font-mono font-bold text-slate-300 text-xs flex items-center gap-1.5 h-[53px]">
+                        <span>${row.pickup_time}</span>
+                        <span class="text-[10px] font-black tracking-wider px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-indigo-400">${weekdayString}</span>
+                    </td>
+                    <td class="py-4 px-4 font-mono font-black text-indigo-400 text-xs hover:underline maint-modal-trigger" onclick="openDrilldown('${row.load_number}')">
                         ${isMultiStop ? (isExpanded ? '▼ ' : '▶ ') : ''}${row.load_number}
                     </td>
                     <td class="py-4 px-4 font-mono text-slate-200 font-bold text-xs">${row.conf_number}</td>
@@ -313,8 +310,7 @@
                             🔍 View Driver
                         </button>
                     </td>
-                    <td class="py-4 px-4 text-center"><span class="block px-3 py-1.5 text-[11px] font-black tracking-wider rounded-lg border uppercase ${statusBg}">${row.release_status}</span></td>
-                    <td class="py-4 px-4">${docSummary}</td>
+                    <td class="py-4 px-4 text-center"><span class="block px-3 py-1.5 text-[11px] font-black tracking-wider rounded-lg border uppercase text-center ${statusBg}">${row.release_status}</span></td>
                     <td class="py-4 px-4 text-[10px] text-slate-500 space-y-0.5 font-mono">
                         <div class="text-slate-400 truncate">👤 ${row.updated_by}</div>
                         <div class="text-[9px]">⏱️ ${new Date(row.last_updated_time).toLocaleTimeString()}</div>
@@ -326,6 +322,15 @@
 
         function changeDay(day) {
             activeDayFilter = day;
+            const tz = warehouseTimezones[currentTerminalFacility] || "America/New_York";
+            const warehouseTodayStr = getWarehouseCurrentDateString(tz);
+            const todayDateObj = new Date(warehouseTodayStr + "T00:00:00");
+            const warehouseDayOfWeek = todayDateObj.getDay();
+
+            // Dynamic Button text re-labeling
+            document.getElementById('day-today').innerText = "Today";
+            document.getElementById('day-tomorrow').innerText = (warehouseDayOfWeek === 5) ? "Weekend / Mon" : "Tomorrow";
+
             document.getElementById('day-today').className = day === 'today' ? "px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer bg-indigo-600 text-white shadow-xs" : "px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer text-slate-400 hover:text-slate-200";
             document.getElementById('day-tomorrow').className = day === 'tomorrow' ? "px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer bg-indigo-600 text-white shadow-xs" : "px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer text-slate-400 hover:text-slate-200";
             renderTerminalMatrix();
@@ -355,19 +360,17 @@
             if (load.carrier_type === 'Asset-Based') {
                 photoContainer.innerHTML = `
                     <div class="text-indigo-400 text-lg font-bold">🛡️ EXEMPT</div>
-                    <p class="text-[10px] text-slate-400 mt-1 max-w-xs">Approved Whitelisted Core Asset Carrier.<br>Physical photo document parameters waived.</p>
+                    <p class="text-[10px] text-slate-400 mt-1 max-w-xs">Approved Whitelisted Core Asset Carrier.<br>Physical ID documentation rules waived.</p>
                 `;
             } else if (!load.driver_form_submitted || load.driver_name === 'TBD') {
                 photoContainer.innerHTML = `
                     <div class="text-slate-600 text-xl">📁</div>
-                    <p class="text-[11px] text-slate-500 mt-1">Awaiting dispatch document ingestion.</p>
+                    <p class="text-[11px] text-slate-500 mt-1">Awaiting dispatch document ingestion payload.</p>
                 `;
             } else {
                 photoContainer.innerHTML = `
                     <div class="w-full h-full rounded-lg border border-slate-800 bg-slate-900 flex items-center justify-center">
-                        <div class="text-center p-4">
-                            <span class="text-xs text-emerald-400 font-mono font-semibold block">✓ SYSTEM_CDL_IMAGE_ATTACHED.PNG</span>
-                        </div>
+                        <span class="text-xs text-emerald-400 font-mono font-semibold">✓ CDL_IDENTITY_IMAGE_ATTACHED.PNG</span>
                     </div>
                 `;
             }
@@ -387,16 +390,16 @@
             if (load.release_status === 'HOLD – DO NOT LOAD') {
                 exceptionBox.classList.remove('hidden');
                 document.getElementById('modalExceptionReason').innerText = `Reason: ${load.exception_reason || 'Administrative Risk Freeze Triggered By HQ Tower.'}`;
-                document.getElementById('modalNextAction').innerText = `Next Action: ${load.next_action || 'Halt all dock doors immediately. Contact transportation coordinator.'}`;
+                document.getElementById('modalNextAction').innerText = `Next Action: ${load.next_action || 'Halt doors immediately. Contact corporate coordinator.'}`;
             } else { exceptionBox.classList.add('hidden'); }
 
             const checklist = document.getElementById('modalChecklist');
             const checkpoints = [
-                { name: "Trailer Number Visible", ok: load.release_status === "APPROVED TO LOAD" },
-                { name: "Seal Applied (Door + Close-Up views)", ok: load.release_status === "APPROVED TO LOAD" },
-                { name: "Truck MC/DOT Registration Matching MyCarrierPacket", ok: load.driver_form_submitted },
-                { name: "Tractor VIN Physical Stamping Inspection", ok: load.driver_form_submitted },
-                { name: "Readable Commercial Driver's License (CDL) verification", ok: load.driver_form_submitted }
+                { name: "Trailer Verification Manifest Lock Alignment", ok: load.release_status === "APPROVED TO LOAD" },
+                { name: "Outbound Door Cargo Security Seal Verification", ok: load.release_status === "APPROVED TO LOAD" },
+                { name: "Truck MC/DOT Match Logs (MyCarrierPacket Network)", ok: load.driver_form_submitted },
+                { name: "Tractor VIN Identification Match Plate Review", ok: load.driver_form_submitted },
+                { name: "Mandatory Active Reefer Coldchain Setpoint (-10°F CONT)", ok: true }
             ];
 
             checklist.innerHTML = checkpoints.map(cp => `
@@ -415,13 +418,20 @@
         function updateTerminalClocks() {
             const tz = warehouseTimezones[currentTerminalFacility] || "America/New_York";
             
-            // Render Live Header Clock
             const timeOptions = { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
             document.getElementById('syncTime').innerText = new Intl.DateTimeFormat('en-US', timeOptions).format(new Date());
 
-            // Render Live Facility Header Date
             const dateOptions = { timeZone: tz, year: 'numeric', month: 'long', day: 'numeric' };
             document.getElementById('liveDateDisplay').innerText = new Intl.DateTimeFormat('en-US', dateOptions).format(new Date());
+            
+            // Adjust tomorrow button label text dynamically based on Friday transitions
+            const warehouseTodayStr = getWarehouseCurrentDateString(tz);
+            const todayDateObj = new Date(warehouseTodayStr + "T00:00:00");
+            if(todayDateObj.getDay() === 5 && activeDayFilter !== 'tomorrow') {
+                document.getElementById('day-tomorrow').innerText = "Weekend / Mon";
+            } else if (activeDayFilter !== 'tomorrow') {
+                document.getElementById('day-tomorrow').innerText = "Tomorrow";
+            }
         }
 
         checkTerminalSession();
