@@ -44,9 +44,8 @@
                 <thead>
                     <tr class="bg-slate-950 text-slate-400 text-[10px] font-bold uppercase tracking-wider border-b border-slate-800">
                         <th class="py-3.5 px-4">Warehouse</th>
-                        <th class="py-3.5 px-4">SO#</th>
-                        <th class="py-3.5 px-4">PO#</th>
-                        <th class="py-3.5 px-4">Load#</th>
+                        <th class="py-3.5 px-4">Load # (Unique ID)</th>
+                        <th class="py-3.5 px-4">Confirmation #</th> <th class="py-3.5 px-4">SO #</th>
                         <th class="py-3.5 px-4">Destination</th>
                         <th class="py-3.5 px-4">Carrier Assigned</th>
                         <th class="py-3.5 px-4">Carrier Entry Data</th>
@@ -60,75 +59,91 @@
     </main>
 
     <div id="ingestModal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 z-40">
-        <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full space-y-4 shadow-2xl">
-            <h3 class="text-sm font-bold text-white border-b border-slate-800 pb-2">Generate Secure Carrier Ingestion Token</h3>
-            <div class="space-y-3 text-xs">
-                <div>
-                    <label class="block text-slate-400 mb-1">Target Warehouse Origin</label>
-                    <select id="formWh" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
-                        <option value="Baltimore">Baltimore</option><option value="Mobile">Mobile</option><option value="Burien">Burien</option>
-                    </select>
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-lg w-full space-y-4 shadow-2xl relative max-h-[90vh] flex flex-col">
+            <h3 class="text-sm font-bold text-white border-b border-slate-800 pb-2 flex-none">Generate Secure Carrier Ingestion Token</h3>
+            
+            <div class="overflow-y-auto pr-1 flex-1 space-y-4">
+                <div class="space-y-3 text-xs bg-slate-950/40 p-3 rounded-xl border border-slate-850">
+                    <div class="font-bold text-indigo-400 uppercase tracking-wider text-[10px]">Step 1: Core Load & Confirmation Variables</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-slate-400 mb-1">Shippers Edge Load #</label>
+                            <input type="text" id="formLoad" placeholder="Enter Unique Load ID" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono font-bold focus:border-indigo-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Confirmation #</label>
+                            <input type="text" id="formConf" placeholder="Enter Master Confirmation ID" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono font-bold focus:border-indigo-500 outline-none">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-slate-400 mb-1">Target Warehouse Origin</label>
+                            <select id="formWh" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white h-[38px]">
+                                <option value="Baltimore">Baltimore</option><option value="Mobile">Mobile</option><option value="Burien">Burien</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Carrier Operator Name</label>
+                            <input type="text" id="formCarrier" placeholder="e.g. Shaffer Trucking" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">Carrier Group Type</label>
+                        <select id="formType" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                            <option value="Broker">Broker Contract</option><option value="Asset-Based">Asset Core Whitelist</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <input type="text" id="formSo" placeholder="Sales Order (SO#)" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono">
-                    <input type="text" id="formPo" placeholder="Customer PO#" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono">
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <input type="text" id="formLoad" placeholder="Shippers Edge Load#" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono">
-                    <input type="text" id="formDest" placeholder="Destination Point" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <input type="text" id="formCarrier" placeholder="Carrier Operator Name" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
-                    <select id="formType" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
-                        <option value="Broker">Broker Contract</option><option value="Asset-Based">Asset Core Whitelist</option>
-                    </select>
+
+                <div class="space-y-3 text-xs">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-indigo-400 uppercase tracking-wider text-[10px]">Step 2: Destination Drop Targets</span>
+                        <button onclick="appendStopRow()" class="px-2.5 py-1 bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 rounded-md font-bold hover:bg-indigo-600 hover:text-white transition cursor-pointer flex items-center gap-1">
+                            <span>+</span> Add Drop Point
+                        </button>
+                    </div>
+                    <div id="stopInputsContainer" class="space-y-2">
+                        </div>
                 </div>
             </div>
-            <div class="pt-2 flex justify-end gap-2 text-xs">
-                <button onclick="closeIngestion()" class="px-3 py-2 bg-slate-800 text-slate-400 rounded-lg">Cancel</button>
-                <button onclick="submitShipment()" class="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg">Create Load Asset</button>
+
+            <div class="pt-3 border-t border-slate-800 flex justify-end gap-2 text-xs flex-none">
+                <button onclick="closeIngestion()" class="px-3 py-2 bg-slate-800 text-slate-400 rounded-lg cursor-pointer">Cancel</button>
+                <button onclick="submitShipment()" class="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition cursor-pointer shadow-md">Create Load Asset</button>
             </div>
         </div>
     </div>
 
     <div id="maintenanceModal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 z-40">
-        <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full space-y-4 shadow-2xl">
-            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-                <h3 class="text-sm font-bold text-white">Shipment Record Maintenance</h3>
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full space-y-4 shadow-2xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2 flex-none">
+                <h3 class="text-sm font-bold text-white">Load Master Record Maintenance</h3>
                 <button onclick="closeMaintenance()" class="text-slate-400 hover:text-white text-md font-bold cursor-pointer">&times;</button>
             </div>
-            <div class="space-y-3 text-xs">
-                <div>
-                    <label class="block text-slate-400 mb-1">Origin Warehouse</label>
-                    <select id="maintWh" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
-                        <option value="Baltimore">Baltimore</option><option value="Mobile">Mobile</option><option value="Burien">Burien</option>
-                    </select>
-                </div>
+            <div class="space-y-3 text-xs overflow-y-auto flex-1 pr-1">
                 <div class="grid grid-cols-2 gap-2">
                     <div>
-                        <label class="block text-slate-400 mb-1">Sales Order (SO#)</label>
-                        <input type="text" id="maintSo" readonly class="w-full bg-slate-950 border border-slate-800/80 rounded-lg p-2 text-slate-500 font-mono focus:outline-none">
+                        <label class="block text-slate-400 mb-1">Origin Warehouse</label>
+                        <select id="maintWh" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                            <option value="Baltimore">Baltimore</option><option value="Mobile">Mobile</option><option value="Burien">Burien</option>
+                        </select>
                     </div>
                     <div>
-                        <label class="block text-slate-400 mb-1">Customer PO#</label>
-                        <input type="text" id="maintPo" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono">
+                        <label class="block text-slate-400 mb-1">Confirmation #</label>
+                        <input type="text" id="maintConf" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono font-bold">
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                     <div>
-                        <label class="block text-slate-400 mb-1">Shippers Edge Load#</label>
-                        <input type="text" id="maintLoad" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono">
+                        <label class="block text-slate-400 mb-1">Shippers Edge Load #</label>
+                        <input type="text" id="maintLoad" readonly class="w-full bg-slate-950 border border-slate-800/80 rounded-lg p-2 text-slate-500 font-mono font-bold focus:outline-none">
                     </div>
-                    <div>
-                        <label class="block text-slate-400 mb-1">Destination Point</label>
-                        <input type="text" id="maintDest" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-2">
                     <div>
                         <label class="block text-slate-400 mb-1">Carrier Assignment</label>
                         <input type="text" id="maintCarrier" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
                     </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
                     <div>
                         <label class="block text-slate-400 mb-1">Assignment Type</label>
                         <select id="maintType" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
@@ -136,19 +151,24 @@
                             <option value="Asset-Based">Asset Core Whitelist</option>
                         </select>
                     </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">Release Security State</label>
+                        <select id="maintStatus" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-semibold">
+                            <option value="AWAITING CARRIER DATA">AWAITING CARRIER DATA</option>
+                            <option value="ACTION REQUIRED">ACTION REQUIRED</option>
+                            <option value="APPROVED TO LOAD">APPROVED TO LOAD</option>
+                            <option value="HOLD – DO NOT LOAD">HOLD – DO NOT LOAD</option>
+                        </select>
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Operational Release Status Override</label>
-                    <select id="maintStatus" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-semibold">
-                        <option value="AWAITING CARRIER DATA">AWAITING CARRIER DATA</option>
-                        <option value="ACTION REQUIRED">ACTION REQUIRED</option>
-                        <option value="APPROVED TO LOAD">APPROVED TO LOAD</option>
-                        <option value="HOLD – DO NOT LOAD">HOLD – DO NOT LOAD</option>
-                    </select>
+
+                <div class="border-t border-slate-800/80 pt-2 space-y-2">
+                    <div class="font-bold text-slate-400 text-[10px] uppercase">Nested Multi-Stop Destination Manifest Array</div>
+                    <div id="maintStopsContainer" class="space-y-2"></div>
                 </div>
             </div>
-            <div class="pt-3 border-t border-slate-800/80 flex justify-between items-center text-xs">
-                <button onclick="deleteShipment()" class="px-3 py-2 bg-rose-950/80 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-semibold rounded-lg transition cursor-pointer">Delete Shipment Record</button>
+            <div class="pt-3 border-t border-slate-800/80 flex justify-between items-center text-xs flex-none">
+                <button onclick="deleteShipment()" class="px-3 py-2 bg-rose-950/80 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-semibold rounded-lg transition cursor-pointer">Delete Load Asset</button>
                 <div class="flex gap-2">
                     <button onclick="closeMaintenance()" class="px-3 py-2 bg-slate-800 text-slate-400 rounded-lg cursor-pointer">Close Window</button>
                     <button onclick="saveShipmentEdits()" class="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition cursor-pointer">Save Modifications</button>
@@ -190,7 +210,8 @@
         
         let activeUser = "";
         let currentWhFilter = "All";
-        let activeReviewSo = "";
+        let activeReviewLoad = "";
+        let expandedLoads = new Set(); 
 
         async function handleLogin() {
             const email = document.getElementById('loginEmail').value;
@@ -216,7 +237,10 @@
             if (!data) return;
 
             data.forEach(row => {
-                // Computed Visual Status Style Matrix mapping
+                const stops = row.stops_json || [];
+                const isMultiStop = stops.length > 1;
+                const isExpanded = expandedLoads.has(row.load_number);
+
                 let statusBadgeColor = "text-slate-400 bg-slate-950 border-slate-800";
                 if (row.release_status === 'ACTION REQUIRED') {
                     statusBadgeColor = "text-amber-400 bg-amber-950/40 border-amber-900/60 animate-pulse";
@@ -226,17 +250,36 @@
                     statusBadgeColor = "text-rose-400 bg-rose-950/60 border-rose-900/60";
                 }
 
+                // Dynamic table layout construction
+                let soCell = "", destCell = "";
+                
+                if (isMultiStop && !isExpanded) {
+                    soCell = `<span class="text-amber-500 font-bold bg-amber-950/20 px-1.5 py-0.5 rounded text-[10px] uppercase border border-amber-900/30">📦 Multi-Stop Load (${stops.length} Drops)</span>`;
+                    destCell = `<span class="text-slate-400 italic">Expand Row to View Target Routes</span>`;
+                } else {
+                    soCell = stops.map(s => `<div class="font-mono text-slate-300 py-0.5">${s.so_number || '---'}</div>`).join('');
+                    destCell = stops.map(s => `<div class="text-slate-300 font-medium py-0.5">${s.destination || '---'}</div>`).join('');
+                }
+
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-800/30 border-b border-slate-800/40 align-middle";
+                tr.className = `hover:bg-slate-800/30 border-b border-slate-800/40 align-middle transition-colors ${isMultiStop ? 'cursor-pointer' : ''}`;
+                
+                tr.onclick = (e) => {
+                    if (e.target.classList.contains('load-click-trigger')) return;
+                    if (isMultiStop) toggleLoadExpansion(row.load_number);
+                };
+
                 tr.innerHTML = `
                     <td class="p-3 font-semibold text-slate-300">${row.warehouse_name}</td>
-                    <td class="p-3 font-mono text-indigo-400 font-bold hover:underline cursor-pointer" onclick="openMaintenanceModal('${row.so_number}')">${row.so_number}</td>
-                    <td class="p-3 font-mono text-slate-400">${row.po_number}</td>
-                    <td class="p-3 font-mono text-slate-400">${row.load_number}</td>
-                    <td class="p-3 text-slate-300 font-medium">${row.destination}</td>
+                    <td class="p-3 font-mono text-indigo-400 font-black hover:underline load-click-trigger" onclick="openMaintenanceModal('${row.load_number}')">
+                        ${isMultiStop ? (isExpanded ? '▼ ' : '▶ ') : ''}${row.load_number}
+                    </td>
+                    <td class="p-3 font-mono font-bold text-slate-300">${row.conf_number}</td>
+                    <td class="p-3">${soCell}</td>
+                    <td class="p-3">${destCell}</td>
                     <td class="p-3 font-medium text-slate-200">${row.carrier_name}<br><span class="text-[9px] font-mono text-slate-500">${row.carrier_type}</span></td>
                     <td class="p-3">
-                        <button onclick="openReviewModal('${row.so_number}')" class="px-2 py-1 bg-slate-800 border border-slate-700 text-[10px] rounded hover:bg-slate-700 cursor-pointer transition">🔍 View Form</button>
+                        <button onclick="event.stopPropagation(); openReviewModal('${row.load_number}')" class="px-2 py-1 bg-slate-800 border border-slate-700 text-[10px] rounded hover:bg-slate-700 cursor-pointer transition">🔍 View Form</button>
                     </td>
                     <td class="p-3">
                         <span class="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-md border ${statusBadgeColor}">
@@ -249,6 +292,12 @@
             });
         }
 
+        function toggleLoadExpansion(loadNum) {
+            if (expandedLoads.has(loadNum)) expandedLoads.delete(loadNum);
+            else expandedLoads.add(loadNum);
+            fetchMasterData();
+        }
+
         function filterWarehouse(wh) {
             currentWhFilter = wh;
             ['All', 'Baltimore', 'Mobile', 'Burien'].forEach(w => {
@@ -257,90 +306,155 @@
             fetchMasterData();
         }
 
-        function openIngestion() { document.getElementById('ingestModal').classList.remove('hidden'); }
+        function openIngestion() { 
+            document.getElementById('formLoad').value = "";
+            document.getElementById('formConf').value = ""; // Clear top-level variable
+            document.getElementById('formCarrier').value = "";
+            document.getElementById('formWh').selectedIndex = 0;
+            document.getElementById('formType').selectedIndex = 0;
+            
+            const container = document.getElementById('stopInputsContainer');
+            container.innerHTML = "";
+            appendStopRow();
+
+            document.getElementById('ingestModal').classList.remove('hidden'); 
+        }
         function closeIngestion() { document.getElementById('ingestModal').classList.add('hidden'); }
 
-        async function submitShipment() {
-            const so = document.getElementById('formSo').value;
+        function appendStopRow() {
+            const container = document.getElementById('stopInputsContainer');
+            const stopCount = container.children.length + 1;
             
+            const div = document.createElement('div');
+            div.className = "bg-slate-950 p-3 rounded-xl border border-slate-850 space-y-2 relative stop-entry-row shadow-inner";
+            div.innerHTML = `
+                <div class="flex justify-between items-center text-[10px] text-slate-500 font-mono">
+                    <span>Drop Route Stop Assignment #${stopCount}</span>
+                    ${stopCount > 1 ? `<button onclick="this.parentElement.parentElement.remove()" class="text-rose-400 hover:text-rose-300 font-bold cursor-pointer">Remove Drop</button>` : ''}
+                </div>
+                <div>
+                    <input type="text" placeholder="Sales Order ID (SO #)" class="stop-so w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-mono">
+                </div>
+                <input type="text" placeholder="Full Destination Delivery Address" class="stop-dest w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white">
+            `;
+            container.appendChild(div);
+        }
+
+        async function submitShipment() {
+            const loadNum = document.getElementById('formLoad').value.trim();
+            const confNum = document.getElementById('formConf').value.trim();
+            
+            if(!loadNum || !confNum) { alert("Both Shippers Edge Load # and Confirmation # fields are required."); return; }
+
+            const stopRows = document.querySelectorAll('#stopInputsContainer .stop-entry-row');
+            const stopsArray = [];
+            
+            stopRows.forEach(row => {
+                const so = row.querySelector('.stop-so').value.trim();
+                const dest = row.querySelector('.stop-dest').value.trim();
+                if(so || dest) {
+                    stopsArray.push({ so_number: so, destination: dest });
+                }
+            });
+
+            if(stopsArray.length === 0) { alert("You must provide at least one active destination delivery drop."); return; }
+
             const { data, error } = await supabaseClient.from('shipments').insert([{
+                load_number: loadNum,
+                conf_number: confNum, // Direct Insert to core column row
                 warehouse_name: document.getElementById('formWh').value, 
-                so_number: so,
-                po_number: document.getElementById('formPo').value, 
-                load_number: document.getElementById('formLoad').value,
-                destination: document.getElementById('formDest').value, 
-                carrier_name: document.getElementById('formCarrier').value,
+                carrier_name: document.getElementById('formCarrier').value, 
                 carrier_type: document.getElementById('formType').value,
-                release_status: 'AWAITING CARRIER DATA', // Enforce baseline state
+                stops_json: stopsArray,
+                release_status: 'AWAITING CARRIER DATA',
                 updated_by: activeUser
             }]).select();
 
-            if (error) { alert("Database Error: " + error.message); return; }
+            if (error) { alert("Database Insertion Conflict Error: " + error.message); return; }
 
             if (data && data.length > 0) {
                 const newLoad = data[0];
                 const portalUrl = `${window.location.origin}/carrier-portal.html?token=${newLoad.id}`;
                 navigator.clipboard.writeText(portalUrl);
-                alert(`Token generated and logged into database matrix!\n\nLink copied to clipboard:\n${portalUrl}`);
+                alert(`Token generated and logged into unique database matrix!\n\nLink copied to clipboard:\n${portalUrl}`);
                 closeIngestion();
                 fetchMasterData();
             }
         }
 
-        // OPEN SHIPMENT MAINTENANCE MODAL VIEW VIA SO# CLICK
-        async function openMaintenanceModal(so) {
-            const { data, error } = await supabaseClient.from('shipments').select('*').eq('so_number', so).single();
+        async function openMaintenanceModal(loadNum) {
+            const { data, error } = await supabaseClient.from('shipments').select('*').eq('load_number', loadNum).single();
             if (error || !data) return;
 
             document.getElementById('maintWh').value = data.warehouse_name;
-            document.getElementById('maintSo').value = data.so_number;
-            document.getElementById('maintPo').value = data.po_number;
             document.getElementById('maintLoad').value = data.load_number;
-            document.getElementById('maintDest').value = data.destination;
+            document.getElementById('maintConf').value = data.conf_number; // Populate top-level
             document.getElementById('maintCarrier').value = data.carrier_name;
             document.getElementById('maintType').value = data.carrier_type;
             document.getElementById('maintStatus').value = data.release_status;
+
+            const container = document.getElementById('maintStopsContainer');
+            container.innerHTML = "";
+            
+            const stops = data.stops_json || [];
+            stops.forEach((stop, idx) => {
+                const div = document.createElement('div');
+                div.className = "maint-stop-row bg-slate-950 p-2.5 rounded-lg border border-slate-850 space-y-2";
+                div.innerHTML = `
+                    <div class="text-[9px] font-mono text-slate-500">Sequence Drop Row #${idx + 1}</div>
+                    <input type="text" value="${stop.so_number || ''}" class="maint-so w-full bg-slate-900 border border-slate-800 rounded p-1.5 font-mono text-white" placeholder="Sales Order (SO #)">
+                    <input type="text" value="${stop.destination || ''}" class="maint-dest w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-white" placeholder="Destination Address">
+                `;
+                container.appendChild(div);
+            });
 
             document.getElementById('maintenanceModal').classList.remove('hidden');
         }
 
         function closeMaintenance() { document.getElementById('maintenanceModal').classList.add('hidden'); }
 
-        // EXECUTE MODIFICATIONS AND SAVE DIRECTLY INTO THE CLOUD MATRIX
         async function saveShipmentEdits() {
-            const so = document.getElementById('maintSo').value;
+            const loadNum = document.getElementById('maintLoad').value;
+            
+            const rows = document.querySelectorAll('#maintStopsContainer .maint-stop-row');
+            const updatedStops = [];
+            rows.forEach(row => {
+                const so = row.querySelector('.maint-so').value.trim();
+                const dest = row.querySelector('.maint-dest').value.trim();
+                if(so || dest) {
+                    updatedStops.push({ so_number: so, destination: dest });
+                }
+            });
+
             const { error } = await supabaseClient.from('shipments').update({
                 warehouse_name: document.getElementById('maintWh').value,
-                po_number: document.getElementById('maintPo').value,
-                load_number: document.getElementById('maintLoad').value,
-                destination: document.getElementById('maintDest').value,
+                conf_number: document.getElementById('maintConf').value, // Save modified value
                 carrier_name: document.getElementById('maintCarrier').value,
                 carrier_type: document.getElementById('maintType').value,
                 release_status: document.getElementById('maintStatus').value,
+                stops_json: updatedStops,
                 updated_by: activeUser,
                 last_updated_time: new Date()
-            }).eq('so_number', so);
+            }).eq('load_number', loadNum);
 
             if (error) { alert("Error saving modifications: " + error.message); return; }
             closeMaintenance();
             fetchMasterData();
         }
 
-        // HARD DELETE LOGISTICS RUN OVERRIDE
         async function deleteShipment() {
-            const so = document.getElementById('maintSo').value;
-            if (confirm(`⚠️ CRITICAL LOGISTICS OVERRIDE\n\nAre you sure you want to permanently erase Shipment ${so}? This will break any active broker check-in tracking links and clear it from the warehouse floor dashboards completely.`)) {
-                const { error } = await supabaseClient.from('shipments').delete().eq('so_number', so);
+            const loadNum = document.getElementById('maintLoad').value;
+            if (confirm(`⚠️ CRITICAL LOGISTICS OVERRIDE\n\nAre you sure you want to permanently delete Load Asset ${loadNum}? This action wipes out all nested Sales Orders, disables any active tracking links, and clears it completely from all warehouse floor monitors.`)) {
+                const { error } = await supabaseClient.from('shipments').delete().eq('load_number', loadNum);
                 if (error) { alert("Deletion failure: " + error.message); return; }
                 closeMaintenance();
                 fetchMasterData();
             }
         }
 
-        // DYNAMIC REVIEW WINDOW POPULATOR
-        async function openReviewModal(so) {
-            activeReviewSo = so;
-            const { data } = await supabaseClient.from('shipments').select('*').eq('so_number', so).single();
+        async function openReviewModal(loadNum) {
+            activeReviewLoad = loadNum;
+            const { data } = await supabaseClient.from('shipments').select('*').eq('load_number', loadNum).single();
             
             document.getElementById('revDriver').innerText = data.driver_name || 'TBD';
             document.getElementById('revLic').innerText = data.driver_license || 'TBD';
@@ -389,7 +503,7 @@
         function closeReviewModal() { document.getElementById('reviewModal').classList.add('hidden'); }
 
         async function updateStatus(status) {
-            await supabaseClient.from('shipments').update({ release_status: status, updated_by: activeUser, last_updated_time: new Date() }).eq('so_number', activeReviewSo);
+            await supabaseClient.from('shipments').update({ release_status: status, updated_by: activeUser, last_updated_time: new Date() }).eq('load_number', activeReviewLoad);
             document.getElementById('reviewModal').classList.add('hidden');
             fetchMasterData();
         }
