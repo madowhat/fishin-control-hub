@@ -44,8 +44,10 @@
                 <thead>
                     <tr class="bg-slate-950 text-slate-400 text-[10px] font-bold uppercase tracking-wider border-b border-slate-800">
                         <th class="py-3.5 px-4">Warehouse</th>
+                        <th class="py-3.5 px-4">Sched Date/Time</th>
                         <th class="py-3.5 px-4">Load # (Unique ID)</th>
-                        <th class="py-3.5 px-4">Confirmation #</th> <th class="py-3.5 px-4">SO #</th>
+                        <th class="py-3.5 px-4">Confirmation #</th>
+                        <th class="py-3.5 px-4">SO #</th>
                         <th class="py-3.5 px-4">Destination</th>
                         <th class="py-3.5 px-4">Carrier Assigned</th>
                         <th class="py-3.5 px-4">Carrier Entry Data</th>
@@ -64,7 +66,7 @@
             
             <div class="overflow-y-auto pr-1 flex-1 space-y-4">
                 <div class="space-y-3 text-xs bg-slate-950/40 p-3 rounded-xl border border-slate-850">
-                    <div class="font-bold text-indigo-400 uppercase tracking-wider text-[10px]">Step 1: Core Load & Confirmation Variables</div>
+                    <div class="font-bold text-indigo-400 uppercase tracking-wider text-[10px]">Step 1: Core Load & Scheduling (Warehouse Local Time)</div>
                     <div class="grid grid-cols-2 gap-2">
                         <div>
                             <label class="block text-slate-400 mb-1">Shippers Edge Load #</label>
@@ -77,9 +79,21 @@
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <div>
+                            <label class="block text-slate-400 mb-1">Pickup Scheduled Date</label>
+                            <input type="date" id="formDate" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-bold h-[38px]">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Pickup Time (24HR Clock)</label>
+                            <input type="text" id="formTime" placeholder="e.g. 14:30 or 08:00" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono font-bold placeholder:text-slate-600">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
                             <label class="block text-slate-400 mb-1">Target Warehouse Origin</label>
                             <select id="formWh" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white h-[38px]">
-                                <option value="Baltimore">Baltimore</option><option value="Mobile">Mobile</option><option value="Burien">Burien</option>
+                                <option value="Baltimore">Baltimore (EST)</option>
+                                <option value="Mobile">Mobile (CST)</option>
+                                <option value="Burien">Burien (PST)</option>
                             </select>
                         </div>
                         <div>
@@ -102,8 +116,7 @@
                             <span>+</span> Add Drop Point
                         </button>
                     </div>
-                    <div id="stopInputsContainer" class="space-y-2">
-                        </div>
+                    <div id="stopInputsContainer" class="space-y-2"></div>
                 </div>
             </div>
 
@@ -135,6 +148,16 @@
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                     <div>
+                        <label class="block text-slate-400 mb-1">Pickup Date</label>
+                        <input type="date" id="maintDate" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">Pickup Time (24HR)</label>
+                        <input type="text" id="maintTime" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono font-bold">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
                         <label class="block text-slate-400 mb-1">Shippers Edge Load #</label>
                         <input type="text" id="maintLoad" readonly class="w-full bg-slate-950 border border-slate-800/80 rounded-lg p-2 text-slate-500 font-mono font-bold focus:outline-none">
                     </div>
@@ -147,8 +170,7 @@
                     <div>
                         <label class="block text-slate-400 mb-1">Assignment Type</label>
                         <select id="maintType" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
-                            <option value="Broker">Broker Contract</option>
-                            <option value="Asset-Based">Asset Core Whitelist</option>
+                            <option value="Broker">Broker Contract</option><option value="Asset-Based">Asset Core Whitelist</option>
                         </select>
                     </div>
                     <div>
@@ -222,7 +244,6 @@
                 document.getElementById('currentUserLabel').innerText = activeUser;
                 document.getElementById('loginOverlay').classList.add('hidden');
                 fetchMasterData();
-                
                 supabaseClient.channel('room1').on('postgres_changes', {event:'*', schema:'public', table:'shipments'}, fetchMasterData).subscribe();
             } else { alert("Invalid access credentials for internal company nodes."); }
         }
@@ -250,27 +271,30 @@
                     statusBadgeColor = "text-rose-400 bg-rose-950/60 border-rose-900/60";
                 }
 
-                // Dynamic table layout construction
                 let soCell = "", destCell = "";
-                
                 if (isMultiStop && !isExpanded) {
-                    soCell = `<span class="text-amber-500 font-bold bg-amber-950/20 px-1.5 py-0.5 rounded text-[10px] uppercase border border-amber-900/30">📦 Multi-Stop Load (${stops.length} Drops)</span>`;
-                    destCell = `<span class="text-slate-400 italic">Expand Row to View Target Routes</span>`;
+                    soCell = `<span class="text-amber-500 font-bold bg-amber-950/20 px-1.5 py-0.5 rounded text-[10px] uppercase border border-amber-900/30">Multi-Stop (${stops.length})</span>`;
+                    destCell = `<span class="text-slate-400 italic">Row Collapsed</span>`;
                 } else {
                     soCell = stops.map(s => `<div class="font-mono text-slate-300 py-0.5">${s.so_number || '---'}</div>`).join('');
                     destCell = stops.map(s => `<div class="text-slate-300 font-medium py-0.5">${s.destination || '---'}</div>`).join('');
                 }
 
                 const tr = document.createElement('tr');
-                tr.className = `hover:bg-slate-800/30 border-b border-slate-800/40 align-middle transition-colors ${isMultiStop ? 'cursor-pointer' : ''}`;
+                tr.className = `hover:bg-slate-800/30 border-b border-slate-800/40 align-middle ${isMultiStop ? 'cursor-pointer' : ''}`;
                 
                 tr.onclick = (e) => {
                     if (e.target.classList.contains('load-click-trigger')) return;
-                    if (isMultiStop) toggleLoadExpansion(row.load_number);
+                    if (isMultiStop) {
+                        if (expandedLoads.has(row.load_number)) expandedLoads.delete(row.load_number);
+                        else expandedLoads.add(row.load_number);
+                        fetchMasterData();
+                    }
                 };
 
                 tr.innerHTML = `
                     <td class="p-3 font-semibold text-slate-300">${row.warehouse_name}</td>
+                    <td class="p-3 font-mono font-bold text-slate-400">${row.pickup_date}<br><span class="text-indigo-400 text-[10px]">${row.pickup_time}</span></td>
                     <td class="p-3 font-mono text-indigo-400 font-black hover:underline load-click-trigger" onclick="openMaintenanceModal('${row.load_number}')">
                         ${isMultiStop ? (isExpanded ? '▼ ' : '▶ ') : ''}${row.load_number}
                     </td>
@@ -292,12 +316,6 @@
             });
         }
 
-        function toggleLoadExpansion(loadNum) {
-            if (expandedLoads.has(loadNum)) expandedLoads.delete(loadNum);
-            else expandedLoads.add(loadNum);
-            fetchMasterData();
-        }
-
         function filterWarehouse(wh) {
             currentWhFilter = wh;
             ['All', 'Baltimore', 'Mobile', 'Burien'].forEach(w => {
@@ -308,8 +326,12 @@
 
         function openIngestion() { 
             document.getElementById('formLoad').value = "";
-            document.getElementById('formConf').value = ""; // Clear top-level variable
+            document.getElementById('formConf').value = "";
             document.getElementById('formCarrier').value = "";
+            document.getElementById('formTime').value = "";
+            
+            // Set date picker input value to equal local systemic clock today
+            document.getElementById('formDate').value = new Date().toISOString().split('T')[0];
             document.getElementById('formWh').selectedIndex = 0;
             document.getElementById('formType').selectedIndex = 0;
             
@@ -343,25 +365,28 @@
         async function submitShipment() {
             const loadNum = document.getElementById('formLoad').value.trim();
             const confNum = document.getElementById('formConf').value.trim();
+            let pickDate = document.getElementById('formDate').value;
+            let pickTime = document.getElementById('formTime').value.trim();
             
             if(!loadNum || !confNum) { alert("Both Shippers Edge Load # and Confirmation # fields are required."); return; }
+            if(!pickDate) pickDate = new Date().toISOString().split('T')[0];
+            if(!pickTime) pickTime = "00:00";
 
             const stopRows = document.querySelectorAll('#stopInputsContainer .stop-entry-row');
             const stopsArray = [];
-            
             stopRows.forEach(row => {
                 const so = row.querySelector('.stop-so').value.trim();
                 const dest = row.querySelector('.stop-dest').value.trim();
-                if(so || dest) {
-                    stopsArray.push({ so_number: so, destination: dest });
-                }
+                if(so || dest) stopsArray.push({ so_number: so, destination: dest });
             });
 
             if(stopsArray.length === 0) { alert("You must provide at least one active destination delivery drop."); return; }
 
             const { data, error } = await supabaseClient.from('shipments').insert([{
                 load_number: loadNum,
-                conf_number: confNum, // Direct Insert to core column row
+                conf_number: confNum,
+                pickup_date: pickDate,
+                pickup_time: pickTime,
                 warehouse_name: document.getElementById('formWh').value, 
                 carrier_name: document.getElementById('formCarrier').value, 
                 carrier_type: document.getElementById('formType').value,
@@ -370,13 +395,13 @@
                 updated_by: activeUser
             }]).select();
 
-            if (error) { alert("Database Insertion Conflict Error: " + error.message); return; }
+            if (error) { alert("Database Error: " + error.message); return; }
 
             if (data && data.length > 0) {
                 const newLoad = data[0];
                 const portalUrl = `${window.location.origin}/carrier-portal.html?token=${newLoad.id}`;
                 navigator.clipboard.writeText(portalUrl);
-                alert(`Token generated and logged into unique database matrix!\n\nLink copied to clipboard:\n${portalUrl}`);
+                alert(`Token generated and link copied to clipboard:\n${portalUrl}`);
                 closeIngestion();
                 fetchMasterData();
             }
@@ -388,14 +413,15 @@
 
             document.getElementById('maintWh').value = data.warehouse_name;
             document.getElementById('maintLoad').value = data.load_number;
-            document.getElementById('maintConf').value = data.conf_number; // Populate top-level
+            document.getElementById('maintConf').value = data.conf_number;
+            document.getElementById('maintDate').value = data.pickup_date;
+            document.getElementById('maintTime').value = data.pickup_time;
             document.getElementById('maintCarrier').value = data.carrier_name;
             document.getElementById('maintType').value = data.carrier_type;
             document.getElementById('maintStatus').value = data.release_status;
 
             const container = document.getElementById('maintStopsContainer');
             container.innerHTML = "";
-            
             const stops = data.stops_json || [];
             stops.forEach((stop, idx) => {
                 const div = document.createElement('div');
@@ -415,20 +441,19 @@
 
         async function saveShipmentEdits() {
             const loadNum = document.getElementById('maintLoad').value;
-            
             const rows = document.querySelectorAll('#maintStopsContainer .maint-stop-row');
             const updatedStops = [];
             rows.forEach(row => {
                 const so = row.querySelector('.maint-so').value.trim();
                 const dest = row.querySelector('.maint-dest').value.trim();
-                if(so || dest) {
-                    updatedStops.push({ so_number: so, destination: dest });
-                }
+                if(so || dest) updatedStops.push({ so_number: so, destination: dest });
             });
 
             const { error } = await supabaseClient.from('shipments').update({
                 warehouse_name: document.getElementById('maintWh').value,
-                conf_number: document.getElementById('maintConf').value, // Save modified value
+                conf_number: document.getElementById('maintConf').value,
+                pickup_date: document.getElementById('maintDate').value,
+                pickup_time: document.getElementById('maintTime').value,
                 carrier_name: document.getElementById('maintCarrier').value,
                 carrier_type: document.getElementById('maintType').value,
                 release_status: document.getElementById('maintStatus').value,
@@ -444,7 +469,7 @@
 
         async function deleteShipment() {
             const loadNum = document.getElementById('maintLoad').value;
-            if (confirm(`⚠️ CRITICAL LOGISTICS OVERRIDE\n\nAre you sure you want to permanently delete Load Asset ${loadNum}? This action wipes out all nested Sales Orders, disables any active tracking links, and clears it completely from all warehouse floor monitors.`)) {
+            if (confirm(`⚠️ permanently delete Load Asset ${loadNum}?`)) {
                 const { error } = await supabaseClient.from('shipments').delete().eq('load_number', loadNum);
                 if (error) { alert("Deletion failure: " + error.message); return; }
                 closeMaintenance();
@@ -469,34 +494,20 @@
 
             if (data.carrier_type === 'Asset-Based') {
                 imgGrid.className = "block text-center p-4 bg-indigo-950/30 border border-indigo-900/40 rounded-xl";
-                imgGrid.innerHTML = `
-                    <div class="text-indigo-400 font-bold text-sm">🛡️ Asset Carrier Whitelist Node</div>
-                    <p class="text-[11px] text-slate-400 mt-1">This driver is dispatched via an approved asset-based fleet. Document photo uploads are automatically waived under baseline compliance rules.</p>
-                `;
+                imgGrid.innerHTML = `<div class="text-indigo-400 font-bold text-sm">🛡️ Asset Carrier Whitelist Node</div>`;
             } else if (!data.driver_form_submitted) {
                 imgGrid.className = "block text-center p-6 bg-slate-950 rounded-xl border border-slate-850";
-                imgGrid.innerHTML = `
-                    <div class="text-slate-500 font-medium font-sans">⏱️ Awaiting Broker Payload Submission</div>
-                    <p class="text-[10px] text-slate-600 mt-0.5">The dispatch link hasn't been filled out yet. Gate parameters remain set to default queue parameters.</p>
-                `;
+                imgGrid.innerHTML = `<div class="text-slate-500 font-medium font-sans">⏱️ Awaiting Broker Payload Submission</div>`;
             } else {
                 imgGrid.className = "grid grid-cols-2 gap-2";
-                const imageItems = [
-                    { label: "Commercial Driver's License", stub: "cdl" },
-                    { label: "Tractor Unit Decal (MC/DOT)", stub: "truck" },
-                    { label: "Physical VIN Stamping", stub: "vin" },
-                    { label: "Trailer Lock Seal Application", stub: "seal" }
-                ];
+                const imageItems = [{ label: "CDL Photo", stub: "cdl" }, { label: "Decal MC/DOT", stub: "truck" }, { label: "VIN Plate", stub: "vin" }, { label: "Lock Seal", stub: "seal" }];
                 imgGrid.innerHTML = imageItems.map(img => `
-                    <div class="bg-slate-950 border border-slate-800 p-2 rounded-xl flex flex-col items-center justify-center min-h-28 text-center">
-                        <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-tight block mb-2">${img.label}</span>
-                        <div class="w-full h-20 rounded bg-slate-900 border border-slate-800 flex items-center justify-center cursor-pointer hover:border-slate-700 transition">
-                            <span class="text-[10px] text-emerald-400 font-mono font-bold uppercase">✓ Verified_${img.stub}.jpg</span>
-                        </div>
+                    <div class="bg-slate-950 border border-slate-800 p-2 rounded-xl flex flex-col items-center justify-center min-h-24 text-center">
+                        <span class="text-[10px] font-semibold text-slate-400 uppercase block mb-1">${img.label}</span>
+                        <span class="text-[10px] text-emerald-400 font-mono">✓ Verified_${img.stub}.jpg</span>
                     </div>
                 `).join('');
             }
-
             document.getElementById('reviewModal').classList.remove('hidden');
         }
 

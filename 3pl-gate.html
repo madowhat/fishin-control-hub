@@ -24,7 +24,7 @@
                 <p class="text-xs text-slate-400 mt-1">Enter your assigned terminal passcode to open live outbound monitors.</p>
             </div>
             <div class="space-y-3 pt-2">
-                <input type="password" id="warehousePass" placeholder="e.g. Baltimore4568" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-center font-bold tracking-widest text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase">
+                <input type="password" id="warehousePass" placeholder="e.g. Baltimore1234" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-center font-bold tracking-widest text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase">
                 <button onclick="handleWarehouseLogin()" class="w-full py-3 bg-indigo-600 font-bold rounded-xl text-sm text-white hover:bg-indigo-700 transition cursor-pointer shadow-md shadow-indigo-950/30">Authorize Access Terminal</button>
             </div>
         </div>
@@ -45,11 +45,11 @@
         <div class="flex items-center gap-6 text-xs bg-slate-950/60 border border-slate-800 rounded-xl p-3 w-full md:w-auto justify-between md:justify-start">
             <div class="flex items-center gap-2.5">
                 <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span class="text-slate-400">Date: <strong id="liveDateDisplay" class="text-slate-200 font-mono">May 25, 2026</strong></span>
+                <span class="text-slate-400">Terminal Date: <strong id="liveDateDisplay" class="text-slate-200 font-mono">---</strong></span>
             </div>
             <div class="text-right border-l border-slate-800 pl-4">
-                <span class="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Last Sync</span>
-                <span id="syncTime" class="font-mono text-slate-300 font-medium">10:19:43</span>
+                <span class="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Terminal Clock</span>
+                <span id="syncTime" class="font-mono text-indigo-400 font-black">---</span>
             </div>
         </div>
     </header>
@@ -57,7 +57,8 @@
     <section class="bg-slate-900/40 border-b border-slate-800/60 px-6 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex flex-wrap items-center gap-4">
             <div class="bg-slate-950 p-1 rounded-xl border border-slate-800 flex gap-1">
-                <button onclick="changeDay('today')" id="day-today" class="px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer bg-indigo-600 text-white shadow-xs">Scheduled Queue</button>
+                <button onclick="changeDay('today')" id="day-today" class="px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer bg-indigo-600 text-white shadow-xs">Today</button>
+                <button onclick="changeDay('tomorrow')" id="day-tomorrow" class="px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer text-slate-400 hover:text-slate-200">Tomorrow</button>
             </div>
             <div class="flex items-center gap-1.5 border-l border-slate-800 pl-4">
                 <button onclick="filterType('all')" id="filter-all" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white border border-slate-700 cursor-pointer transition">All Shipments</button>
@@ -75,6 +76,7 @@
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-slate-950 text-slate-400 text-[11px] font-bold uppercase tracking-wider border-b border-slate-800">
+                        <th class="py-4 px-4 w-24">Pickup Time</th>
                         <th class="py-4 px-4 w-44">Shippers Edge Load# (ID)</th>
                         <th class="py-4 px-4 w-36">Confirmation #</th>
                         <th class="py-4 px-4 w-36">Sales Order (SO#)</th>
@@ -100,18 +102,15 @@
                 </div>
                 <button onclick="closeModal()" class="text-slate-400 hover:text-white text-sm font-bold bg-slate-800 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer">&times;</button>
             </div>
-            
             <div id="modalExceptionBox" class="p-4 bg-rose-950/40 border border-rose-900/60 rounded-xl space-y-1 hidden">
                 <span class="text-[10px] font-bold text-rose-400 uppercase tracking-wider block">Active Gate Exception Block</span>
                 <p id="modalExceptionReason" class="text-xs font-semibold text-rose-200">Exception parameters flagged.</p>
                 <p id="modalNextAction" class="text-xs text-slate-400 mt-1">Next Action: Awaiting Admin overrides.</p>
             </div>
-
             <div class="space-y-3">
                 <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Required Compliance Checkpoints</h4>
                 <div id="modalChecklist" class="space-y-2 text-xs"></div>
             </div>
-
             <div class="pt-2 border-t border-slate-800 flex justify-end">
                 <button onclick="closeModal()" class="px-4 py-2 bg-slate-800 text-slate-200 font-medium rounded-lg text-xs hover:bg-slate-700 transition cursor-pointer">Dismiss View</button>
             </div>
@@ -127,43 +126,19 @@
                 </div>
                 <button onclick="closeDriverModal()" class="text-slate-400 hover:text-white text-sm font-bold bg-slate-800 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer">&times;</button>
             </div>
-
             <div class="space-y-2.5 bg-slate-950/60 p-4 rounded-xl border border-slate-800 text-xs">
-                <div class="flex justify-between items-center border-b border-slate-900/60 pb-2">
-                    <span class="text-slate-400 font-medium">Driver’s Name:</span>
-                    <span id="driverViewName" class="text-white font-semibold text-sm">---</span>
-                </div>
-                <div class="flex justify-between items-center border-b border-slate-900/60 pb-2">
-                    <span class="text-slate-400 font-medium">Driver’s License Number:</span>
-                    <span id="driverViewLicense" class="text-slate-200 font-mono font-medium">---</span>
-                </div>
-                <div class="flex justify-between items-center border-b border-slate-900/60 pb-2">
-                    <span class="text-slate-400 font-medium">Driver’s Phone Number:</span>
-                    <span id="driverViewPhone" class="text-slate-200 font-medium">---</span>
-                </div>
-                <div class="flex justify-between items-center border-b border-slate-900/60 pb-2">
-                    <span class="text-slate-400 font-medium">Truck Number:</span>
-                    <span id="driverViewTruck" class="text-slate-200 font-mono font-medium">---</span>
-                </div>
-                <div class="flex justify-between items-center border-b border-slate-900/60 pb-2">
-                    <span class="text-slate-400 font-medium">Trailer Number:</span>
-                    <span id="driverViewTrailer" class="text-slate-200 font-mono font-medium">---</span>
-                </div>
-                <div class="flex justify-between items-center border-b border-slate-900/60 pb-2">
-                    <span class="text-slate-400 font-medium">MC Number:</span>
-                    <span id="driverViewMC" class="text-slate-200 font-mono font-medium">---</span>
-                </div>
-                <div class="flex justify-between items-center">
-                    <span class="text-slate-400 font-medium">DOT Number:</span>
-                    <span id="driverViewDOT" class="text-slate-200 font-mono font-medium">---</span>
-                </div>
+                <div class="flex justify-between items-center border-b border-slate-900/60 pb-2"><span class="text-slate-400 font-medium">Driver’s Name:</span><span id="driverViewName" class="text-white font-semibold text-sm">---</span></div>
+                <div class="flex justify-between items-center border-b border-slate-900/60 pb-2"><span class="text-slate-400 font-medium">Driver’s License Number:</span><span id="driverViewLicense" class="text-slate-200 font-mono font-medium">---</span></div>
+                <div class="flex justify-between items-center border-b border-slate-900/60 pb-2"><span class="text-slate-400 font-medium">Driver’s Phone Number:</span><span id="driverViewPhone" class="text-slate-200 font-medium">---</span></div>
+                <div class="flex justify-between items-center border-b border-slate-900/60 pb-2"><span class="text-slate-400 font-medium">Truck Number:</span><span id="driverViewTruck" class="text-slate-200 font-mono font-medium">---</span></div>
+                <div class="flex justify-between items-center border-b border-slate-900/60 pb-2"><span class="text-slate-400 font-medium">Trailer Number:</span><span id="driverViewTrailer" class="text-slate-200 font-mono font-medium">---</span></div>
+                <div class="flex justify-between items-center border-b border-slate-900/60 pb-2"><span class="text-slate-400 font-medium">MC Number:</span><span id="driverViewMC" class="text-slate-200 font-mono font-medium">---</span></div>
+                <div class="flex justify-between items-center"><span class="text-slate-400 font-medium">DOT Number:</span><span id="driverViewDOT" class="text-slate-200 font-mono font-medium">---</span></div>
             </div>
-
             <div class="space-y-2">
                 <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Driver's License Document Photo</h4>
                 <div id="driverPhotoContainer" class="w-full h-44 bg-slate-950 rounded-xl border border-slate-800 flex flex-col items-center justify-center text-center p-4"></div>
             </div>
-
             <div class="pt-2 border-t border-slate-800 flex justify-end">
                 <button onclick="closeDriverModal()" class="px-4 py-2 bg-slate-800 text-slate-200 font-medium rounded-lg text-xs hover:bg-slate-700 transition cursor-pointer">Close Profile</button>
             </div>
@@ -174,11 +149,18 @@
         const supabaseClient = supabase.createClient("https://xknhqscsusfuhodujajy.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhrbmhxc2NzdXNmdWhvZHVqYWp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NDU5MjMsImV4cCI6MjA5NTEyMTkyM30.IqQ_WeKRfg5EO2y8rbn7MAUT1vSMCS-6fIxC2M1oTGw");
         
         let currentTerminalFacility = "";
+        let activeDayFilter = 'today';
         let activeTypeFilter = 'all';
         let expandedLoads = new Set();
         let shipmentDataCache = [];
 
-        // Single password lookup map schema matrix
+        // Geographic international facility timeline maps
+        const warehouseTimezones = {
+            "Baltimore": "America/New_York",
+            "Mobile": "America/Chicago",
+            "Burien": "America/Los_Angeles"
+        };
+
         const terminalCredentials = {
             "BALTIMORE4568": "Baltimore",
             "MOBILE1122": "Mobile",
@@ -187,17 +169,9 @@
 
         async function checkTerminalSession() {
             const cachedToken = localStorage.getItem('fishin_terminal_clearance');
-            const urlParams = new URLSearchParams(window.location.search);
-            const targetParam = urlParams.get('warehouse');
-
             if (cachedToken && terminalCredentials[cachedToken]) {
                 currentTerminalFacility = terminalCredentials[cachedToken];
-                
-                // Enforce route synchronization
-                if (!targetParam || targetParam.toLowerCase() !== currentTerminalFacility.toLowerCase()) {
-                    window.history.replaceState(null, '', `?warehouse=${currentTerminalFacility.toLowerCase()}`);
-                }
-                
+                window.history.replaceState(null, '', `?warehouse=${currentTerminalFacility.toLowerCase()}`);
                 document.getElementById('warehouseLoginOverlay').classList.add('hidden');
                 document.getElementById('facilityBadge').innerText = `${currentTerminalFacility} Hub`;
                 initializeTerminalLoop();
@@ -206,32 +180,35 @@
 
         async function handleWarehouseLogin() {
             const rawInput = document.getElementById('warehousePass').value.trim().toUpperCase();
-            
             if (terminalCredentials[rawInput]) {
                 localStorage.setItem('fishin_terminal_clearance', rawInput);
                 currentTerminalFacility = terminalCredentials[rawInput];
                 window.history.replaceState(null, '', `?warehouse=${currentTerminalFacility.toLowerCase()}`);
-                
                 document.getElementById('warehouseLoginOverlay').classList.add('hidden');
                 document.getElementById('facilityBadge').innerText = `${currentTerminalFacility} Hub`;
                 initializeTerminalLoop();
-            } else {
-                alert("Invalid warehouse terminal gate authentication key code.");
-            }
+            } else { alert("Invalid warehouse terminal gate authentication key code."); }
         }
 
         function initializeTerminalLoop() {
             fetchTerminalQueue();
+            setInterval(updateTerminalClocks, 1000);
             supabaseClient.channel('gate_room').on('postgres_changes', {event:'*', schema:'public', table:'shipments'}, fetchTerminalQueue).subscribe();
+        }
+
+        function getWarehouseCurrentDateString(tz) {
+            // Formats to exact ISO standard date string "YYYY-MM-DD" inside target timezone
+            const options = { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' };
+            const dsl = new Intl.DateTimeFormat('en-CA', options).format(new Date());
+            return dsl; // Returns safe "YYYY-MM-DD" string
         }
 
         async function fetchTerminalQueue() {
             const { data } = await supabaseClient
                 .from('shipments')
                 .select('*')
-                .eq('warehouse_name', currentTerminalFacility)
-                .order('created_at', {ascending: false});
-
+                .eq('warehouse_name', currentTerminalFacility);
+            
             shipmentDataCache = data || [];
             renderTerminalMatrix();
         }
@@ -240,13 +217,30 @@
             const tbody = document.getElementById('dashboardBody');
             tbody.innerHTML = "";
 
-            let filteredPool = shipmentDataCache;
+            const tz = warehouseTimezones[currentTerminalFacility] || "America/New_York";
+            const warehouseTodayStr = getWarehouseCurrentDateString(tz);
+            
+            // Calculate warehouse tomorrow string
+            const todayDateObj = new Date(warehouseTodayStr + "T00:00:00");
+            todayDateObj.setDate(todayDateObj.getDate() + 1);
+            const warehouseTomorrowStr = todayDateObj.toISOString().split('T')[0];
+
+            let filteredPool = shipmentDataCache.filter(row => {
+                const rowDateStr = row.pickup_date; // "YYYY-MM-DD" from database
+                if (activeDayFilter === 'today') return rowDateStr === warehouseTodayStr;
+                if (activeDayFilter === 'tomorrow') return rowDateStr === warehouseTomorrowStr;
+                return true;
+            });
+
             if (activeTypeFilter === 'exceptions') {
                 filteredPool = filteredPool.filter(row => row.release_status.includes('HOLD') || row.release_status.includes('AWAITING'));
             }
 
+            // Chronological sort based on 24-hour pickup clock value string
+            filteredPool.sort((a,b) => a.pickup_time.localeCompare(b.pickup_time));
+
             if (filteredPool.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="py-12 text-center text-slate-500 font-medium text-xs bg-slate-900/50">No outbound active shipments logged for this terminal selector.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" class="py-12 text-center text-slate-500 font-medium text-xs bg-slate-900/50">No outbound active shipments scheduled for this date channel.</td></tr>`;
                 return;
             }
 
@@ -271,11 +265,10 @@
                     </div>
                 `;
 
-                // Interactive Expand Collapse Logic Construction Block
                 let soDisplay = "", destDisplay = "";
                 if (isMultiStop && !isExpanded) {
                     soDisplay = `<span class="text-amber-500 font-bold bg-amber-950/30 px-1.5 py-0.5 rounded text-[10px] uppercase border border-amber-900/40">📦 Multi-Stop (${stops.length} Drops)</span>`;
-                    destDisplay = `<span class="text-slate-400 italic">Click Row Container to Expand Target Paths</span>`;
+                    destDisplay = `<span class="text-slate-400 italic text-[11px]">Click Row Container to Expand Target Paths</span>`;
                 } else {
                     soDisplay = stops.map(s => `<div class="font-mono text-slate-300 py-0.5">${s.so_number || '---'}</div>`).join('');
                     destDisplay = stops.map(s => `<div class="text-slate-300 font-medium py-0.5 truncate max-w-[320px]" title="${s.destination}">${s.destination || '---'}</div>`).join('');
@@ -285,7 +278,7 @@
                 tr.className = `hover:bg-slate-800/40 transition align-middle ${isMultiStop ? 'cursor-pointer' : ''}`;
                 
                 tr.onclick = (e) => {
-                    if (e.target.classList.contains('maint-modal-trigger')) return;
+                    if (e.target.classList.contains('maint-modal-trigger') || e.target.closest('button')) return;
                     if (isMultiStop) {
                         if (expandedLoads.has(row.load_number)) expandedLoads.delete(row.load_number);
                         else expandedLoads.add(row.load_number);
@@ -294,7 +287,8 @@
                 };
 
                 tr.innerHTML = `
-                    <td class="py-4 px-4 font-mono font-black text-indigo-400 text-xs hover:underline maint-modal-trigger" onclick="openDrilldown('${row.load_number}')">
+                    <td class="py-4 px-4 font-mono font-bold text-indigo-400 text-sm">${row.pickup_time}</td>
+                    <td class="py-4 px-4 font-mono font-black text-slate-100 text-xs hover:underline maint-modal-trigger" onclick="openDrilldown('${row.load_number}')">
                         ${isMultiStop ? (isExpanded ? '▼ ' : '▶ ') : ''}${row.load_number}
                     </td>
                     <td class="py-4 px-4 font-mono text-slate-200 font-bold text-xs">${row.conf_number}</td>
@@ -305,8 +299,8 @@
                         <div class="text-[10px] text-slate-500 font-mono">${row.carrier_type}</div>
                     </td>
                     <td class="py-4 px-4">
-                        <button onclick="event.stopPropagation(); openDriverModal('${row.load_number}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-medium rounded-md text-xs cursor-pointer transition text-center w-full">
-                            🔍 Profile
+                        <button onclick="openDriverModal('${row.load_number}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-medium rounded-md text-xs cursor-pointer transition text-center w-full">
+                            🔍 View Driver
                         </button>
                     </td>
                     <td class="py-4 px-4 text-center"><span class="block px-3 py-1.5 text-[11px] font-black tracking-wider rounded-lg border uppercase ${statusBg}">${row.release_status}</span></td>
@@ -318,6 +312,13 @@
                 `;
                 tbody.appendChild(tr);
             });
+        }
+
+        function changeDay(day) {
+            activeDayFilter = day;
+            document.getElementById('day-today').className = day === 'today' ? "px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer bg-indigo-600 text-white shadow-xs" : "px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer text-slate-400 hover:text-slate-200";
+            document.getElementById('day-tomorrow').className = day === 'tomorrow' ? "px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer bg-indigo-600 text-white shadow-xs" : "px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer text-slate-400 hover:text-slate-200";
+            renderTerminalMatrix();
         }
 
         function filterType(type) {
@@ -341,28 +342,25 @@
             document.getElementById('driverViewDOT').innerText = load.dot_number || 'TBD';
 
             const photoContainer = document.getElementById('driverPhotoContainer');
-            
             if (load.carrier_type === 'Asset-Based') {
                 photoContainer.innerHTML = `
-                    <div class="text-indigo-400 text-lg font-bold">🛡️ EXEMPT ASSET ASYNC</div>
+                    <div class="text-indigo-400 text-lg font-bold">🛡️ EXEMPT</div>
                     <p class="text-[10px] text-slate-400 mt-1 max-w-xs">Approved Whitelisted Core Asset Carrier.<br>Physical photo document parameters waived.</p>
                 `;
             } else if (!load.driver_form_submitted || load.driver_name === 'TBD') {
                 photoContainer.innerHTML = `
                     <div class="text-slate-600 text-xl">📁</div>
-                    <p class="text-[11px] text-slate-500 mt-1">Awaiting dispatch self-service broker document submission.</p>
+                    <p class="text-[11px] text-slate-500 mt-1">Awaiting dispatch document ingestion.</p>
                 `;
             } else {
                 photoContainer.innerHTML = `
                     <div class="w-full h-full rounded-lg border border-slate-800 bg-slate-900 flex items-center justify-center">
                         <div class="text-center p-4">
                             <span class="text-xs text-emerald-400 font-mono font-semibold block">✓ SYSTEM_CDL_IMAGE_ATTACHED.PNG</span>
-                            <span class="text-[10px] text-slate-500 block mt-1">Manifest Document Identity Locks Verified</span>
                         </div>
                     </div>
                 `;
             }
-
             document.getElementById('driverModal').classList.remove('hidden');
         }
 
@@ -380,17 +378,15 @@
                 exceptionBox.classList.remove('hidden');
                 document.getElementById('modalExceptionReason').innerText = `Reason: ${load.exception_reason || 'Administrative Risk Freeze Triggered By HQ Tower.'}`;
                 document.getElementById('modalNextAction').innerText = `Next Action: ${load.next_action || 'Halt all dock doors immediately. Contact transportation coordinator.'}`;
-            } else {
-                exceptionBox.classList.add('hidden');
-            }
+            } else { exceptionBox.classList.add('hidden'); }
 
             const checklist = document.getElementById('modalChecklist');
             const checkpoints = [
-                { name: "Outbound Security Seal Application Match", ok: load.release_status === "APPROVED TO LOAD" },
+                { name: "Trailer Number Visible", ok: load.release_status === "APPROVED TO LOAD" },
+                { name: "Seal Applied (Door + Close-Up views)", ok: load.release_status === "APPROVED TO LOAD" },
                 { name: "Truck MC/DOT Registration Matching MyCarrierPacket", ok: load.driver_form_submitted },
                 { name: "Tractor VIN Physical Stamping Inspection", ok: load.driver_form_submitted },
-                { name: "Readable Commercial Driver's License (CDL) verification", ok: load.driver_form_submitted },
-                { name: "Mandatory Target Reefer Coldchain Temp (-10°F CONT)", ok: true }
+                { name: "Readable Commercial Driver's License (CDL) verification", ok: load.driver_form_submitted }
             ];
 
             checklist.innerHTML = checkpoints.map(cp => `
@@ -401,22 +397,23 @@
                     </span>
                 </div>
             `).join('');
-
             document.getElementById('detailModal').classList.remove('hidden');
         }
 
         function closeModal() { document.getElementById('detailModal').classList.add('hidden'); }
 
-        // Live visual timing loops matching terminal variables
-        const dateOptions = { year: 'numeric', month: 'long', day: 'numeric' };
-        document.getElementById('liveDateDisplay').innerText = new Date().toLocaleDateString('en-US', dateOptions);
+        function updateTerminalClocks() {
+            const tz = warehouseTimezones[currentTerminalFacility] || "America/New_York";
+            
+            // Render Live Header Clock
+            const timeOptions = { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+            document.getElementById('syncTime').innerText = new Intl.DateTimeFormat('en-US', timeOptions).format(new Date());
 
-        setInterval(() => {
-            const now = new Date();
-            document.getElementById('syncTime').innerText = now.toTimeString().split(' ')[0];
-        }, 1000);
+            // Render Live Facility Header Date
+            const dateOptions = { timeZone: tz, year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('liveDateDisplay').innerText = new Intl.DateTimeFormat('en-US', dateOptions).format(new Date());
+        }
 
-        // Run security handshake sequence initialization
         checkTerminalSession();
     </script>
 </body>
