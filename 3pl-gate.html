@@ -191,31 +191,19 @@
         }
 
 		function initializeTerminalLoop() {
-			// 1. Fire the initial data load right away
+			// 1. Fire the initial data fetch immediately when they log in
 			fetchTerminalQueue();
 			
-			// 2. Start the live clocks matching the warehouse timezone
+			// 2. Keep the local warehouse clock ticking every 1 second
 			setInterval(updateTerminalClocks, 1000);
 			
-			// 3. FIXED: Re-engineered real-time channel tracking with strict row filter hooks
-			supabaseClient
-				.channel('gate_room_sync')
-				.on(
-					'postgres_changes', 
-					{
-						event: '*', 
-						schema: 'public', 
-						table: 'shipments',
-						filter: `warehouse_name=eq.${currentTerminalFacility}` // <-- THE CRITICAL FIX
-					}, 
-					() => {
-						console.log("⚡ Real-time database delta detected. Syncing terminal queue...");
-						fetchTerminalQueue();
-					}
-				)
-				.subscribe((status) => {
-					console.log(`📡 Supabase stream connection state: ${status}`);
-				});
+			// 3. ⏱️ THE 2-SECOND POLLING HEARTBEAT
+			// This replaces the broken real-time stream entirely.
+			// It silently checks the database for updates every 2000 milliseconds (2 seconds).
+			setInterval(() => {
+				console.log("⏱️ Heartbeat tick: Fetching latest terminal queue matrix...");
+				fetchTerminalQueue();
+			}, 2000);
 		}
 
         function getWarehouseCurrentDateString(tz) {
