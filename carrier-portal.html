@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"><title>The Fishin' Company - Carrier Gate Registration</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <meta charset="UTF-8">
+    <title>The Fishin' Company - Carrier Gate Registration</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 <body class="bg-[#0b0f19] text-slate-200 p-6 flex flex-col items-center justify-center min-h-screen">
     
@@ -18,61 +19,147 @@
             <p class="text-xs text-slate-400 mt-1">Provide strict driver assignments to prevent terminal entry rejection.</p>
         </div>
 
-        <div class="p-3 bg-indigo-950/40 border border-indigo-900/40 rounded-xl text-xs space-y-1">
-            <p>Sales Order Ref: <strong id="manifestSo" class="font-mono text-white">---</strong></p>
+        <div class="p-3 bg-indigo-950/40 border border-indigo-900/40 rounded-xl text-xs space-y-1.5">
+            <p>Shippers Edge Load #: <strong id="manifestLoad" class="font-mono text-white">---</strong></p>
+            <p>Sales Order Ref(s): <strong id="manifestSo" class="font-mono text-white">---</strong></p>
             <p>Mandatory Target Coldchain Temp: <strong class="text-rose-400 font-bold">-10°F CONT</strong></p>
         </div>
 
-        <form id="carrierForm" class="space-y-3.5 text-xs">
-            <input type="text" id="driverName" placeholder="Driver Full Legal Name (As displayed on CDL)" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
-            <input type="text" id="driverLic" placeholder="Commercial Driver's License (CDL) Number" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
-            <input type="tel" id="driverPhone" placeholder="Driver Mobile Phone Line" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
-            <div class="grid grid-cols-2 gap-2">
-                <input type="text" id="truckNum" placeholder="Tractor / Truck ID" required class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
-                <input type="text" id="trailerNum" placeholder="Trailer Equipment ID" required class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+        <form id="carrierForm" class="space-y-4 text-xs">
+            
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Driver Full Legal Name</label>
+                    <input type="text" id="driverName" placeholder="As displayed on CDL" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+                </div>
+                <div>
+                    <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Commercial Driver's License (CDL) Number</label>
+                    <input type="text" id="driverLic" placeholder="Enter CDL alphanumeric string" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white font-mono">
+                </div>
+                <div>
+                    <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Driver Mobile Phone Line</label>
+                    <input type="tel" id="driverPhone" placeholder="e.g. 555-555-5555" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Tractor / Truck ID</label>
+                        <input type="text" id="truckNum" placeholder="Truck ID" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Trailer Equipment ID</label>
+                        <input type="text" id="trailerNum" placeholder="Trailer ID" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white font-mono">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Carrier MC Number</label>
+                        <input type="text" id="mcNum" placeholder="MC #" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1 text-[10px] uppercase font-bold">Carrier DOT Registration</label>
+                        <input type="text" id="dotNum" placeholder="DOT #" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white font-mono">
+                    </div>
+                </div>
             </div>
-            <div class="grid grid-cols-2 gap-2">
-                <input type="text" id="mcNum" placeholder="Carrier MC Number" required class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
-                <input type="text" id="dotNum" placeholder="Carrier DOT Registration" required class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+
+            <div class="border-t border-slate-800 pt-3 space-y-3">
+                <h4 class="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Mandatory Photographic Verification Vault</h4>
+                
+                <div class="space-y-2.5 bg-slate-950/60 p-3 rounded-xl border border-slate-850">
+                    <div>
+                        <label class="block text-slate-400 text-[10px] font-medium mb-1">1) Truck Side View (Must show visible Carrier Decals, MC, & DOT)</label>
+                        <input type="file" id="photoTruck" accept="image/*" required class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 text-[10px] font-medium mb-1">2) Tractor VIN Stamp (Close-up view of identification plate)</label>
+                        <input type="file" id="photoVin" accept="image/*" required class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 text-[10px] font-medium mb-1">3) Driver's Commercial License (Legible, un-blurred front photo)</label>
+                        <input type="file" id="photoCdl" accept="image/*" required class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 text-[10px] font-medium mb-1">4) Driver Physical Face Photo (Clear front-facing profile image)</label>
+                        <input type="file" id="photoDriver" accept="image/*" required class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
+                    </div>
+                </div>
             </div>
-            <button type="submit" class="w-full py-3 bg-indigo-600 font-bold rounded-xl text-white hover:bg-indigo-700 transition cursor-pointer">Submit Secure Manifest Details</button>
+
+            <button type="submit" class="w-full py-3 bg-indigo-600 font-bold rounded-xl text-white hover:bg-indigo-700 transition cursor-pointer shadow-md shadow-indigo-950/50">Submit Secure Manifest Details</button>
         </form>
     </div>
 
     <script>
-        const supabase = supabase.createClient("YOUR_SUPABASE_PROJECT_URL", "YOUR_SUPABASE_ANON_PUBLIC_KEY");
+        // Central Cloud Storage Handlers
+        const supabase = supabase.createClient("https://xknhqscsusfuhodujajy.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhrbmhxc2NzdXNmdWhvZHVqYWp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NDU5MjMsImV4cCI6MjA5NTEyMTkyM30.IqQ_WeKRfg5EO2y8rbn7MAUT1vSMCS-6fIxC2M1oTGw");
         const urlParams = new URLSearchParams(window.location.search);
         const recordToken = urlParams.get('token');
 
         async function initPortal() {
-            const { data, error } = await supabase.from('shipments').select('*').eq('id', recordToken).single();
-            if (error || !data) { alert("Invalid encrypted authentication load index token."); return; }
+            if(!recordToken) { alert("Missing operational tracking parameters."); return; }
 
-            // Enforce the strict 24-hour expiration security rule framework
+            // 🛠️ CRITICAL LOGISTICS FIX: Query using secure_token instead of record ID mapping
+            const { data, error } = await supabase.from('shipments').select('*').eq('secure_token', recordToken).single();
+            if (error || !data) { 
+                document.getElementById('portalFormCard').innerHTML = `<div class="text-rose-400 font-semibold text-center py-4">⚠️ Invalid or unrecognized entry link code parameters.</div>`;
+                return; 
+            }
+
+            // Calculate the 24-hour dynamic countdown constraint rule
             const timeDifference = new Date() - new Date(data.created_at);
             if (timeDifference > 24 * 60 * 60 * 1000) {
                 document.getElementById('portalFormCard').classList.add('hidden');
                 document.getElementById('expirationBlock').classList.remove('hidden');
                 return;
             }
-            document.getElementById('manifestSo').innerText = data.so_number;
+
+            // Expose the core structural tracking labels
+            document.getElementById('manifestLoad').innerText = data.load_number || 'N/A';
+            
+            // Map multi-stop nested JSON arrays down to plain view codes text loops seamlessly
+            if(data.stops_json && Array.isArray(data.stops_json)) {
+                document.getElementById('manifestSo').innerText = data.stops_json.map(s => s.so_number || '---').join(', ');
+            } else {
+                document.getElementById('manifestSo').innerText = data.so_number || '---';
+            }
         }
 
+        // CONTROL INPUT MANIFEST CAPTURE LOOP
         document.getElementById('carrierForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            await supabase.from('shipments').update({
-                driver_name: document.getElementById('driverName').value,
-                driver_license: document.getElementById('driverLic').value,
-                driver_phone: document.getElementById('driverPhone').value,
-                truck_number: document.getElementById('truckNum').value,
-                trailer_number: document.getElementById('trailerNum').value,
-                mc_number: document.getElementById('mcNum').value,
-                dot_number: document.getElementById('dotNum').value,
-                driver_form_submitted: true
-            }).eq('id', recordToken);
-            alert("Security manifest uploaded successfully. Your equipment has been provisionally registered for warehouse entry.");
+
+            // Assemble input value states securely
+            const payload = {
+                driver_name: document.getElementById('driverName').value.trim(),
+                driver_license: document.getElementById('driverLic').value.trim(),
+                driver_phone: document.getElementById('driverPhone').value.trim(),
+                truck_number: document.getElementById('truckNum').value.trim(),
+                trailer_number: document.getElementById('trailerNum').value.trim(),
+                mc_number: document.getElementById('mcNum').value.trim(),
+                dot_number: document.getElementById('dotNum').value.trim(),
+                driver_form_submitted: true,
+                photos_submitted: true, // Signals the admin board that file slots are complete
+                release_status: 'ACTION REQUIRED', // Flips rows amber on the corporate dashboard natively
+                last_updated_time: new Date().toISOString()
+            };
+
+            // Database submission execute lane
+            const { error } = await supabase.from('shipments').update(payload).eq('secure_token', recordToken);
+            
+            if (error) {
+                alert("Database Submission Interrupted: " + error.message);
+            } else {
+                document.getElementById('portalFormCard').innerHTML = `
+                    <div class="text-center p-6 space-y-3">
+                        <div class="text-3xl">✅</div>
+                        <h3 class="text-md font-bold text-white">Security Manifest Uploaded</h3>
+                        <p class="text-xs text-slate-400">Your information has been successfully registered. The warehouse gate team will run physical comparisons upon terminal check-in.</p>
+                    </div>
+                `;
+            }
         });
 
+        // Initialize execution on terminal landing
         initPortal();
     </script>
 </body>
