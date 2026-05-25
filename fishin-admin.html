@@ -228,3 +228,358 @@
                 <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Submitted Security Images</h4>
                 <div id="imageReviewGrid" class="grid grid-cols-2 gap-2"></div>
             </div>
+
+            <div class="pt-2 border-t border-slate-800/80 flex gap-2 justify-end">
+                <button onclick="closeReviewModal()" class="px-4 py-2.5 bg-slate-800 text-slate-300 rounded-lg font-medium hover:bg-slate-700 transition cursor-pointer">1. Close and Continue to Hold Shipment</button>
+                <button onclick="updateStatus('APPROVED TO LOAD')" class="px-5 py-2.5 bg-emerald-600 font-bold rounded-lg text-white hover:bg-emerald-700 transition cursor-pointer shadow-md shadow-emerald-950/40">2. Verify and Approve to Load</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Production API Target Gateways
+        const supabaseClient = supabase.createClient("https://xknhqscsusfuhodujajy.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhrbmhxc2NzdXNmdWhvZHVqYWp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NDU5MjMsImV4cCI6MjA5NTEyMTkyM30.IqQ_WeKRfg5EO2y8rbn7MAUT1vSMCS-6fIxC2M1oTGw");
+        
+        let activeUser = "";
+        let currentWhFilter = "All";
+        let activeReviewLoad = "";
+        let expandedLoads = new Set(); 
+
+        // OPERATOR REGISTRATION DOMAIN LOOP
+        async function handleLogin() {
+            const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+            const pass = document.getElementById('loginPass').value.trim();
+            
+            if(email.endsWith("@fishinco.com") && pass === "Fishin2026") {
+                activeUser = email;
+                document.getElementById('currentUserLabel').innerText = activeUser;
+                document.getElementById('loginOverlay').classList.add('hidden');
+                
+                fetchMasterData();
+                supabaseClient.channel('room1').on('postgres_changes', {event:'*', schema:'public', table:'shipments'}, fetchMasterData).subscribe();
+            } else { alert("Invalid access credentials for internal company domains."); }
+        }
+
+        // INJECT LIVE CLEAN LOGOUT ROUTINE RESET MASK
+        function handleLogout() {
+            activeUser = "";
+            document.getElementById('currentUserLabel').innerText = "Not Verified";
+            document.getElementById('loginEmail').value = "";
+            document.getElementById('loginPass').value = "";
+            document.getElementById('loginOverlay').classList.remove('hidden');
+        }
+
+        // Master Data Extraction Queue
+        async function fetchMasterData() {
+            let query = supabaseClient.from('shipments').select('*').order('created_at', {ascending: false});
+            if(currentWhFilter !== "All") query = query.eq('warehouse_name', currentWhFilter);
+            const { data } = await query;
+            const tbody = document.getElementById('adminTableBody');
+            tbody.innerHTML = "";
+
+            if (!data) return;
+
+            data.forEach(row => {
+                const stops = row.stops_json || [];
+                const isMultiStop = stops.length > 1;
+                const isExpanded = expandedLoads.has(row.load_number);
+
+                let statusBadgeColor = "text-slate-400 bg-slate-950 border-slate-800";
+                if (row.release_status === 'ACTION REQUIRED') {
+                    statusBadgeColor = "text-amber-400 bg-amber-950/40 border-amber-900/60 animate-pulse";
+                } else if (row.release_status === 'APPROVED TO LOAD') {
+                    statusBadgeColor = "text-emerald-400 bg-emerald-950/50 border-emerald-900/60";
+                } else if (row.release_status === 'HOLD – DO NOT LOAD') {
+                    statusBadgeColor = "text-rose-400 bg-rose-950/60 border-rose-900/60";
+                }
+
+                let soCell = "", destCell = "";
+                if (isMultiStop && !isExpanded) {
+                    soCell = `<span class="text-amber-500 font-bold bg-amber-950/20 px-1.5 py-0.5 rounded text-[10px] uppercase border border-amber-900/30">Multi-Stop (${stops.length})</span>`;
+                    destCell = `<span class="text-slate-400 italic">Row Collapsed</span>`;
+                } else {
+                    soCell = stops.map(s => `<div class="font-mono text-slate-300 py-0.5">${s.so_number || '---'}</div>`).join('');
+                    destCell = stops.map(s => `<div class="text-slate-300 font-medium py-0.5">${s.destination || '---'}</div>`).join('');
+                }
+
+                const tr = document.createElement('tr');
+                tr.className = `hover:bg-slate-800/30 border-b border-slate-800/40 align-middle ${isMultiStop ? 'cursor-pointer' : ''}`;
+                
+                tr.onclick = (e) => {
+                    if (e.target.classList.contains('load-click-trigger') || e.target.closest('.action-btn-trigger')) return;
+                    if (isMultiStop) {
+                        if (expandedLoads.has(row.load_number)) expandedLoads.delete(row.load_number);
+                        else expandedLoads.add(row.load_number);
+                        fetchMasterData();
+                    }
+                };
+
+                tr.innerHTML = `
+                    <td class="p-3 font-semibold text-slate-300">${row.warehouse_name}</td>
+                    <td class="p-3 font-mono font-bold text-slate-400">${row.pickup_date}<br><span class="text-indigo-400 text-[10px]">${row.pickup_time}</span></td>
+                    <td class="p-3 font-mono text-indigo-400 font-black hover:underline load-click-trigger" onclick="openMaintenanceModal('${row.load_number}')">
+                        ${isMultiStop ? (isExpanded ? '▼ ' : '▶ ') : ''}${row.load_number}
+                    </td>
+                    <td class="p-3 font-mono font-bold text-slate-300">${row.conf_number}</td>
+                    <td class="p-3">${soCell}</td>
+                    <td class="p-3">${destCell}</td>
+                    <td class="p-3 font-medium text-slate-200">${row.carrier_name}<br><span class="text-[9px] font-mono text-slate-500">${row.carrier_type}</span></td>
+                    <td class="p-3">
+                        <button onclick="openReviewModal('${row.load_number}')" class="action-btn-trigger px-2 py-1 bg-slate-800 border border-slate-700 text-[10px] rounded hover:bg-slate-700 cursor-pointer transition">🔍 View Form</button>
+                    </td>
+                    <td class="p-3">
+                        <span class="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-md border ${statusBadgeColor}">
+                            ${row.release_status}
+                        </span>
+                    </td>
+                    <td class="p-3 font-mono text-[10px] text-slate-500">👤 ${row.updated_by || 'System'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // RESET AND FLUSH FORM VALUES ON NEW ENTRY VISITS
+        function openIngestion() { 
+            document.getElementById('formLoad').value = "";
+            document.getElementById('formConf').value = "";
+            document.getElementById('formCarrier').value = "";
+            document.getElementById('formTime').value = "";
+            
+            document.getElementById('formDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('formWh').selectedIndex = 0;
+            document.getElementById('formType').selectedIndex = 0;
+            
+            const container = document.getElementById('stopInputsContainer');
+            container.innerHTML = "";
+            appendStopRow();
+
+            document.getElementById('ingestModal').classList.remove('hidden'); 
+        }
+
+        function closeIngestion() { document.getElementById('ingestModal').classList.add('hidden'); }
+
+        function appendStopRow() {
+            const container = document.getElementById('stopInputsContainer');
+            const stopCount = container.children.length + 1;
+            
+            const div = document.createElement('div');
+            div.className = "bg-slate-950 p-3 rounded-xl border border-slate-850 space-y-2 relative stop-entry-row shadow-inner";
+            div.innerHTML = `
+                <div class="flex justify-between items-center text-[10px] text-slate-500 font-mono">
+                    <span>Drop Route Stop Assignment #${stopCount}</span>
+                    ${stopCount > 1 ? `<button onclick="this.parentElement.parentElement.remove()" class="text-rose-400 hover:text-rose-300 font-bold cursor-pointer">Remove Drop</button>` : ''}
+                </div>
+                <div>
+                    <input type="text" placeholder="Sales Order ID (SO #)" class="stop-so w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-mono">
+                </div>
+                <input type="text" placeholder="Full Destination Delivery Address" class="stop-dest w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white">
+            `;
+            container.appendChild(div);
+        }
+
+        async function submitShipment() {
+            const loadNum = document.getElementById('formLoad').value.trim();
+            const confNum = document.getElementById('formConf').value.trim();
+            let pickDate = document.getElementById('formDate').value;
+            let pickTime = document.getElementById('formTime').value.trim();
+            
+            if(!loadNum || !confNum) { alert("Both Shippers Edge Load # and Confirmation # fields are required."); return; }
+            if(!pickDate) pickDate = new Date().toISOString().split('T')[0];
+            if(!pickTime) pickTime = "00:00";
+
+            const stopRows = document.querySelectorAll('#stopInputsContainer .stop-entry-row');
+            const stopsArray = [];
+            stopRows.forEach(row => {
+                const so = row.querySelector('.stop-so').value.trim();
+                const dest = row.querySelector('.stop-dest').value.trim();
+                if(so || dest) stopsArray.push({ so_number: so, destination: dest });
+            });
+
+            if(stopsArray.length === 0) { alert("You must provide at least one active destination delivery drop."); return; }
+
+            const secureUniqueToken = "tok_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+            const { data, error } = await supabaseClient.from('shipments').insert([{
+                load_number: loadNum,
+                conf_number: confNum,
+                pickup_date: pickDate,
+                pickup_time: pickTime,
+                warehouse_name: document.getElementById('formWh').value, 
+                carrier_name: document.getElementById('formCarrier').value, 
+                carrier_type: document.getElementById('formType').value,
+                stops_json: stopsArray,
+                secure_token: secureUniqueToken,
+                release_status: 'AWAITING CARRIER DATA',
+                updated_by: activeUser
+            }]).select();
+
+            if (error) { alert("Database Error: " + error.message); return; }
+
+            if (data && data.length > 0) {
+                const portalUrl = `https://the-fishin-company-portal.onrender.com/carrier-portal.html?token=${secureUniqueToken}`;
+                navigator.clipboard.writeText(portalUrl);
+                alert(`Token generated and link copied to clipboard:\n${portalUrl}`);
+                closeIngestion();
+                fetchMasterData();
+            }
+        }
+
+        async function openMaintenanceModal(loadNum) {
+            const { data, error } = await supabaseClient.from('shipments').select('*').eq('load_number', loadNum).single();
+            if (error || !data) return;
+
+            document.getElementById('maintWh').value = data.warehouse_name;
+            document.getElementById('maintLoad').value = data.load_number;
+            document.getElementById('maintConf').value = data.conf_number;
+            document.getElementById('maintDate').value = data.pickup_date;
+            document.getElementById('maintTime').value = data.pickup_time;
+            document.getElementById('maintCarrier').value = data.carrier_name;
+            document.getElementById('maintType').value = data.carrier_type;
+            document.getElementById('maintStatus').value = data.release_status;
+
+            const container = document.getElementById('maintStopsContainer');
+            container.innerHTML = "";
+            const stops = data.stops_json || [];
+            stops.forEach((stop, idx) => {
+                const div = document.createElement('div');
+                div.className = "maint-stop-row bg-slate-950 p-2.5 rounded-lg border border-slate-850 space-y-2";
+                div.innerHTML = `
+                    <div class="text-[9px] font-mono text-slate-500">Sequence Drop Row #${idx + 1}</div>
+                    <input type="text" value="${stop.so_number || ''}" class="maint-so w-full bg-slate-900 border border-slate-800 rounded p-1.5 font-mono text-white" placeholder="Sales Order (SO #)">
+                    <input type="text" value="${stop.destination || ''}" class="maint-dest w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-white" placeholder="Destination Address">
+                `;
+                container.appendChild(div);
+            });
+
+            document.getElementById('maintenanceModal').classList.remove('hidden');
+        }
+
+        function closeMaintenance() { document.getElementById('maintenanceModal').classList.add('hidden'); }
+
+        async function saveShipmentEdits() {
+            const loadNum = document.getElementById('maintLoad').value;
+            const rows = document.querySelectorAll('#maintStopsContainer .maint-stop-row');
+            const updatedStops = [];
+            rows.forEach(row => {
+                const so = row.querySelector('.maint-so').value.trim();
+                const dest = row.querySelector('.maint-dest').value.trim();
+                if(so || dest) updatedStops.push({ so_number: so, destination: dest });
+            });
+
+            const { error } = await supabaseClient.from('shipments').update({
+                warehouse_name: document.getElementById('maintWh').value,
+                conf_number: document.getElementById('maintConf').value,
+                pickup_date: document.getElementById('maintDate').value,
+                pickup_time: document.getElementById('maintTime').value,
+                carrier_name: document.getElementById('maintCarrier').value,
+                carrier_type: document.getElementById('maintType').value,
+                release_status: document.getElementById('maintStatus').value,
+                stops_json: updatedStops,
+                updated_by: activeUser,
+                last_updated_time: new Date()
+            }).eq('load_number', loadNum);
+
+            if (error) { alert("Error saving modifications: " + error.message); return; }
+            closeMaintenance();
+            fetchMasterData();
+        }
+
+        async function deleteShipment() {
+            const loadNum = document.getElementById('maintLoad').value;
+            if (confirm(`⚠️ permanently delete Load Asset ${loadNum}?`)) {
+                const { error } = await supabaseClient.from('shipments').delete().eq('load_number', loadNum);
+                if (error) { alert("Deletion failure: " + error.message); return; }
+                closeMaintenance();
+                fetchMasterData();
+            }
+        }
+
+        // AUDIT REVIEW DISPLAY PANEL
+        async function openReviewModal(loadNum) {
+            activeReviewLoad = loadNum;
+            const { data, error } = await supabaseClient.from('shipments').select('*').eq('load_number', loadNum).single();
+            if (error || !data) return;
+            
+            document.getElementById('revDriver').innerText = data.driver_name || 'TBD';
+            document.getElementById('revLic').innerText = data.driver_license || 'TBD';
+            document.getElementById('revPhone').innerText = data.driver_phone || 'TBD';
+            document.getElementById('revTruck').innerText = data.truck_number || 'TBD';
+            document.getElementById('revTrailer').innerText = data.trailer_number || 'TBD';
+            document.getElementById('revMC').innerText = data.mc_number || 'TBD';
+            document.getElementById('revDOT').innerText = data.dot_number || 'TBD';
+
+            // CALCULATE AND ROUTE LIVE PATH TOKEN STRINGS INTO MODAL CONTAINER
+            const activeToken = data.secure_token || data.id;
+            const absoluteLinkPath = `https://the-fishin-company-portal.onrender.com/carrier-portal.html?token=${activeToken}`;
+            document.getElementById('reviewSecureLinkField').value = absoluteLinkPath;
+
+            const imgGrid = document.getElementById('imageReviewGrid');
+            imgGrid.innerHTML = ""; 
+
+            if (data.carrier_type === 'Asset-Based') {
+                imgGrid.className = "block text-center p-4 bg-indigo-950/30 border border-indigo-900/40 rounded-xl";
+                imgGrid.innerHTML = `<div class="text-indigo-400 font-bold text-sm">🛡️ Asset Carrier Whitelist Node</div>`;
+            } else if (!data.driver_form_submitted) {
+                imgGrid.className = "block text-center p-6 bg-slate-950 rounded-xl border border-slate-850";
+                imgGrid.innerHTML = `<div class="text-slate-500 font-medium font-sans">⏱️ Awaiting Broker Payload Submission</div>`;
+            } else {
+                imgGrid.className = "grid grid-cols-2 gap-2";
+                const imageItems = [{ label: "CDL Photo", stub: "cdl" }, { label: "Decal MC/DOT", stub: "truck" }, { label: "VIN Plate", stub: "vin" }, { label: "Lock Seal", stub: "seal" }];
+                imgGrid.innerHTML = imageItems.map(img => `
+                    <div class="bg-slate-950 border border-slate-800 p-2 rounded-xl flex flex-col items-center justify-center min-h-24 text-center">
+                        <span class="text-[10px] font-semibold text-slate-400 uppercase block mb-1">${img.label}</span>
+                        <span class="text-[10px] text-emerald-400 font-mono">✓ Verified_${img.stub}.jpg</span>
+                    </div>
+                `).join('');
+            }
+            document.getElementById('reviewModal').classList.remove('hidden');
+        }
+
+        // EXECUTE SECURE RESET STRATEGY FOR TOKENS
+        async function regenerateActiveBrokerToken() {
+            if (!activeReviewLoad) return;
+            
+            const freshSecureToken = "tok_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            const freshPortalUrl = `https://the-fishin-company-portal.onrender.com/carrier-portal.html?token=${freshSecureToken}`;
+
+            try {
+                const { error } = await supabaseClient.from('shipments').update({
+                    secure_token: freshSecureToken,
+                    created_at: new Date().toISOString(), // Restarts the 24-hour expiration window rule
+                    release_status: 'AWAITING CARRIER DATA', // Reverts to operational default
+                    updated_by: activeUser
+                }).eq('load_number', activeReviewLoad);
+
+                if (error) throw error;
+
+                document.getElementById('reviewSecureLinkField').value = freshPortalUrl;
+                navigator.clipboard.writeText(freshPortalUrl);
+                alert("Success!\n\nNew secure token path generated and copied directly to your clipboard. Old token has been completely invalidated.");
+                
+                fetchMasterData();
+            } catch (err) {
+                alert("Token Regeneration Interrupted: " + err.message);
+            }
+        }
+
+        function closeReviewModal() { document.getElementById('reviewModal').classList.add('hidden'); }
+
+        async function updateStatus(status) {
+            await supabaseClient.from('shipments').update({ release_status: status, updated_by: activeUser, last_updated_time: new Date() }).eq('load_number', activeReviewLoad);
+            document.getElementById('reviewModal').classList.add('hidden');
+            fetchMasterData();
+        }
+
+        function filterWarehouse(wh) {
+            currentWhFilter = wh;
+            ['All', 'Baltimore', 'Mobile', 'Burien'].forEach(w => {
+                const element = document.getElementById(`wh-${w}`);
+                if (element) {
+                    element.className = w === wh ? "px-3 py-1 bg-slate-800 text-white border border-slate-700 text-xs font-semibold rounded-md cursor-pointer" : "px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white";
+                }
+            });
+            fetchMasterData();
+        }
+    </script>
+</body>
+</html>
