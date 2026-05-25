@@ -556,7 +556,7 @@
             document.getElementById('reviewModal').classList.remove('hidden');
         }
 
-        // EXECUTE SECURE RESET STRATEGY FOR TOKENS
+		// 🔄 REGENERATE AND RESET THE ACTIVE CARRIER PORTAL ACCESS TOKEN 
         async function regenerateActiveBrokerToken() {
             if (!activeReviewLoad) return;
             
@@ -564,19 +564,46 @@
             const freshPortalUrl = `${window.location.origin}/carrier-portal.html?token=${freshSecureToken}`;
 
             try {
-                const { error } = await supabaseClient.from('shipments').update({
+                // FLUSH CACHE RESET payload: Wipes out old broker data completely to clear the form lock
+                const resetPayload = {
                     secure_token: freshSecureToken,
-                    created_at: new Date().toISOString(), 
-                    release_status: 'AWAITING CARRIER DATA', 
-                    updated_by: activeUser
-                }).eq('load_number', activeReviewLoad);
+                    created_at: new Date().toISOString(), // Restarts the 24-hour baseline rule clock
+                    release_status: 'AWAITING CARRIER DATA', // Reverts row color from Amber back to Default
+                    updated_by: activeUser,
+                    
+                    // Resets submission constraints so the new link is authorized to load
+                    driver_form_submitted: false,
+                    photos_submitted: false,
+                    
+                    // Wipes text metrics fields clean for fresh entry parameters
+                    driver_name: null,
+                    driver_license: null,
+                    driver_phone: null,
+                    truck_number: null,
+                    trailer_number: null,
+                    mc_number: null,
+                    dot_number: null,
+                    
+                    // Deactivates and clears old bucket photo paths
+                    truck_photo_url: null,
+                    vin_photo_url: null,
+                    cdl_photo_url: null,
+                    driver_photo_url: null
+                };
+
+                const { error } = await supabaseClient.from('shipments')
+                    .update(resetPayload)
+                    .eq('load_number', activeReviewLoad);
 
                 if (error) throw error;
 
+                // Sync UI text elements instantly and fire snapshot url to the operator clipboard
                 document.getElementById('reviewSecureLinkField').value = freshPortalUrl;
                 navigator.clipboard.writeText(freshPortalUrl);
-                alert("Success!\n\nNew secure token path generated and copied directly to your clipboard. Old token has been completely invalidated.");
+                alert("Success!\n\nNew link generated and copied to clipboard. Old submissions and image tracks have been cleared out. The broker can now fill out the form from scratch.");
                 
+                // Close the open preview modal and pull a fresh data batch down to update the table grid view
+                document.getElementById('reviewModal').classList.add('hidden');
                 fetchMasterData();
             } catch (err) {
                 alert("Token Regeneration Interrupted: " + err.message);
