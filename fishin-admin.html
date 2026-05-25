@@ -208,12 +208,7 @@
             </div>
             
             <div id="reviewSecureLinkWrapper" class="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-1.5">
-                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Broker Secure Entry Pathway Link</label>
-                <div class="flex gap-2">
-                    <input type="text" id="reviewSecureLinkField" readonly class="w-full bg-slate-900 border border-slate-800 text-indigo-400 text-[11px] font-mono rounded-lg p-2 focus:outline-none select-all">
-                    <button onclick="regenerateActiveBrokerToken()" class="px-2.5 py-1 bg-slate-800 border border-slate-700 text-[10px] rounded hover:bg-slate-700 font-semibold cursor-pointer text-slate-300 transition shrink-0">🔄 Regenerate</button>
                 </div>
-            </div>
 
             <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2 font-mono text-slate-300">
                 <p>Driver Name: <span id="revDriver" class="text-white font-sans font-bold">---</span></p>
@@ -416,7 +411,7 @@
             if (error) { alert("Database Error: " + error.message); return; }
 
             if (data && data.length > 0) {
-                const portalUrl = `https://the-fishin-company-portal.onrender.com/carrier-portal.html?token=${secureUniqueToken}`;
+                const portalUrl = `${window.location.origin}/carrier-portal.html?token=${secureUniqueToken}`;
                 navigator.clipboard.writeText(portalUrl);
                 alert(`Token generated and link copied to clipboard:\n${portalUrl}`);
                 closeIngestion();
@@ -494,10 +489,11 @@
             }
         }
 
-		// AUDIT REVIEW DISPLAY PANEL
+        // AUDIT REVIEW DISPLAY PANEL
         async function openReviewModal(loadNum) {
             activeReviewLoad = loadNum;
-            const { data } = await supabaseClient.from('shipments').select('*').eq('load_number', loadNum).single();
+            const { data, error } = await supabaseClient.from('shipments').select('*').eq('load_number', loadNum).single();
+            if (error || !data) return;
             
             document.getElementById('revDriver').innerText = data.driver_name || 'TBD';
             document.getElementById('revLic').innerText = data.driver_license || 'TBD';
@@ -511,7 +507,6 @@
             const activeToken = data.secure_token || data.id;
             const absoluteLinkPath = `${window.location.origin}/carrier-portal.html?token=${activeToken}`;
             
-            // Re-render the container to show the full link and add a dedicated Copy action button
             document.getElementById('reviewSecureLinkWrapper').innerHTML = `
                 <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Broker Secure Entry Pathway Link</label>
                 <div class="flex flex-col sm:flex-row gap-2">
@@ -532,10 +527,10 @@
             } else if (!data.driver_form_submitted) {
                 imgGrid.className = "block text-center p-6 bg-slate-950 rounded-xl border border-slate-850";
                 imgGrid.innerHTML = `<div class="text-slate-500 font-medium font-sans">⏱️ Awaiting Broker Payload Submission</div>`;
-			} else {
+            } else {
                 imgGrid.className = "grid grid-cols-2 gap-2";
                 
-                // Read the link values directly out of your Supabase storage database columns
+                // Read link values out of your Supabase storage columns 
                 const attachments = [
                     { label: "1) Truck Side View", url: data.truck_photo_url },
                     { label: "2) Tractor VIN Stamp", url: data.vin_photo_url },
@@ -566,13 +561,13 @@
             if (!activeReviewLoad) return;
             
             const freshSecureToken = "tok_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-            const freshPortalUrl = `https://the-fishin-company-portal.onrender.com/carrier-portal.html?token=${freshSecureToken}`;
+            const freshPortalUrl = `${window.location.origin}/carrier-portal.html?token=${freshSecureToken}`;
 
             try {
                 const { error } = await supabaseClient.from('shipments').update({
                     secure_token: freshSecureToken,
-                    created_at: new Date().toISOString(), // Restarts the 24-hour expiration window rule
-                    release_status: 'AWAITING CARRIER DATA', // Reverts to operational default
+                    created_at: new Date().toISOString(), 
+                    release_status: 'AWAITING CARRIER DATA', 
                     updated_by: activeUser
                 }).eq('load_number', activeReviewLoad);
 
