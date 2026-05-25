@@ -15,7 +15,7 @@
 
     <div id="portalFormCard" class="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-md w-full shadow-2xl space-y-6">
         <div>
-            <h2 class="text-lg font-bold text-white">Outbound Ingestion Inbound Manifest</h2>
+            <h2 class="text-lg font-bold text-white">Carrier Pre-Check & Gate Registration</h2>
             <p class="text-xs text-slate-400 mt-1">Provide strict driver assignments to prevent terminal entry rejection.</p>
         </div>
 
@@ -67,25 +67,25 @@
                 
                 <div class="space-y-2.5 bg-slate-950/60 p-3 rounded-xl border border-slate-850">
                     <div>
-                        <label class="block text-slate-400 text-[10px] font-medium mb-1">1) Truck Side View (MC, DOT, & Carrier Decals)</label>
-                        <input type="file" id="photoTruck" accept="image/*" class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
+                        <label class="block text-slate-400 text-[10px] font-medium mb-1">1) Truck Side View (MC, DOT, & Carrier Decals) [Images/PDF]</label>
+                        <input type="file" id="photoTruck" accept="image/*, application/pdf" class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
                     </div>
                     <div>
-                        <label class="block text-slate-400 text-[10px] font-medium mb-1">2) Tractor VIN Stamp (Identification plate view)</label>
-                        <input type="file" id="photoVin" accept="image/*" class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
+                        <label class="block text-slate-400 text-[10px] font-medium mb-1">2) Tractor VIN Stamp (Identification plate view) [Images/PDF]</label>
+                        <input type="file" id="photoVin" accept="image/*, application/pdf" class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
                     </div>
                     <div>
-                        <label class="block text-slate-400 text-[10px] font-medium mb-1">3) Driver's Commercial License (Legible front photo)</label>
-                        <input type="file" id="photoCdl" accept="image/*" class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
+                        <label class="block text-slate-400 text-[10px] font-medium mb-1">3) Driver's Commercial License (Legible front photo) [Images/PDF]</label>
+                        <input type="file" id="photoCdl" accept="image/*, application/pdf" class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
                     </div>
                     <div>
-                        <label class="block text-slate-400 text-[10px] font-medium mb-1">4) Driver Physical Face Photo (Clear front profile view)</label>
-                        <input type="file" id="photoDriver" accept="image/*" class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
+                        <label class="block text-slate-400 text-[10px] font-medium mb-1">4) Driver Physical Face Photo (Clear front profile view) [Images/PDF]</label>
+                        <input type="file" id="photoDriver" accept="image/*, application/pdf" class="w-full text-slate-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 file:cursor-pointer">
                     </div>
                 </div>
             </div>
 
-            <button type="submit" class="w-full py-3 bg-indigo-600 font-bold rounded-xl text-white hover:bg-indigo-700 transition cursor-pointer shadow-md shadow-indigo-950/50">Submit Secure Manifest Details</button>
+            <button type="submit" id="submitBtn" class="w-full py-3 bg-indigo-600 font-bold rounded-xl text-white hover:bg-indigo-700 transition cursor-pointer shadow-md shadow-indigo-950/50">Submit Secure Manifest Details</button>
         </form>
     </div>
 
@@ -93,25 +93,24 @@
         const supabaseClient = supabase.createClient("https://xknhqscsusfuhodujajy.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhrbmhxc2NzdXNmdWhvZHVqYWp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NDU5MjMsImV4cCI6MjA5NTEyMTkyM30.IqQ_WeKRfg5EO2y8rbn7MAUT1vSMCS-6fIxC2M1oTGw");
         const urlParams = new URLSearchParams(window.location.search);
         const recordToken = urlParams.get('token');
+        let globalLoadNumber = "unknown_load";
 
         async function initPortal() {
             if(!recordToken) { alert("Missing operational tracking parameters."); return; }
 
-            // DUAL-COMPATIBILITY LOOKUP FILTER: Searches secure_token first, then falls back to internal row id
             let queryResult = await supabaseClient.from('shipments').select('*').eq('secure_token', recordToken);
-            
             if (!queryResult.data || queryResult.data.length === 0) {
                 queryResult = await supabaseClient.from('shipments').select('*').eq('id', recordToken);
             }
 
             const data = queryResult.data ? queryResult.data[0] : null;
-
             if (!data) { 
                 document.getElementById('portalFormCard').innerHTML = `<div class="text-rose-400 font-semibold text-center py-4">⚠️ Invalid or unrecognized entry link code parameters.</div>`;
                 return; 
             }
 
-            // Calculate the 24-hour dynamic countdown constraint rule
+            globalLoadNumber = data.load_number || "unknown_load";
+
             const timeDifference = new Date() - new Date(data.created_at);
             if (timeDifference > 24 * 60 * 60 * 1000) {
                 document.getElementById('portalFormCard').classList.add('hidden');
@@ -119,10 +118,8 @@
                 return;
             }
 
-            // Expose structural layout reference tracking metadata
             document.getElementById('manifestLoad').innerText = data.load_number || 'N/A';
             
-            // Render multi-stop nested JSON arrays down to plain view codes loops text
             if(data.stops_json && Array.isArray(data.stops_json)) {
                 document.getElementById('manifestSo').innerText = data.stops_json.map(s => s.so_number || '---').join(', ');
             } else {
@@ -130,40 +127,69 @@
             }
         }
 
+        // Helper function to handle individual cloud file processing
+        async function uploadBucketAsset(elementId, suffix) {
+            const input = document.getElementById(elementId);
+            if (input.files.length === 0) return null;
+            
+            const file = input.files[0];
+            const ext = file.name.split('.').pop();
+            const cloudPath = `${globalLoadNumber}/${suffix}_${Date.now()}.` + ext;
+            
+            const { data, error } = await supabaseClient.storage
+                .from('compliance-vault')
+                .upload(cloudPath, file);
+                
+            if (error) throw error;
+            
+            const { data: urlData } = supabaseClient.storage
+                .from('compliance-vault')
+                .getPublicUrl(cloudPath);
+                
+            return urlData.publicUrl;
+        }
+
         document.getElementById('carrierForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-
-            // Detect if files were attached to selectively update flags on the admin side
-            const hasTruckPhoto = document.getElementById('photoTruck').files.length > 0;
-            const hasVinPhoto = document.getElementById('photoVin').files.length > 0;
-            const hasCdlPhoto = document.getElementById('photoCdl').files.length > 0;
-            const hasDriverPhoto = document.getElementById('photoDriver').files.length > 0;
-            const anyPhotosSubmitted = (hasTruckPhoto || hasVinPhoto || hasCdlPhoto || hasDriverPhoto);
-
-            const payload = {
-                driver_name: document.getElementById('driverName').value.trim(),
-                driver_license: document.getElementById('driverLic').value.trim(),
-                driver_phone: document.getElementById('driverPhone').value.trim(),
-                truck_number: document.getElementById('truckNum').value.trim(),
-                trailer_number: document.getElementById('trailerNum').value.trim(),
-                mc_number: document.getElementById('mcNum').value.trim(),
-                dot_number: document.getElementById('dotNum').value.trim(),
-                driver_form_submitted: true,
-                photos_submitted: anyPhotosSubmitted, // Set to true if they provided at least one optional image
-                release_status: 'ACTION REQUIRED', // Turns row amber on internal dashboards instantly
-                last_updated_time: new Date().toISOString()
-            };
-
-            // Execute submission based on the verified token identifier routing match
-            const { data: fetchLoad } = await supabaseClient.from('shipments').select('load_number').eq('secure_token', recordToken);
-            let targetFilterColumn = 'secure_token';
-            if (!fetchLoad || fetchLoad.length === 0) { targetFilterColumn = 'id'; }
-
-            const { error } = await supabaseClient.from('shipments').update(payload).eq(targetFilterColumn, recordToken);
             
-            if (error) {
-                alert("Database Submission Interrupted: " + error.message);
-            } else {
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.innerText = "Processing Assets... Please Wait";
+
+            try {
+                // Upload files asynchronously to your new compliance-vault storage
+                const truckUrl = await uploadBucketAsset('photoTruck', 'truck');
+                const vinUrl = await uploadBucketAsset('photoVin', 'vin');
+                const cdlUrl = await uploadBucketAsset('photoCdl', 'cdl');
+                const driverUrl = await uploadBucketAsset('photoDriver', 'driver');
+                
+                const anyPhotos = (truckUrl || vinUrl || cdlUrl || driverUrl);
+
+                const payload = {
+                    driver_name: document.getElementById('driverName').value.trim(),
+                    driver_license: document.getElementById('driverLic').value.trim(),
+                    driver_phone: document.getElementById('driverPhone').value.trim(),
+                    truck_number: document.getElementById('truckNum').value.trim(),
+                    trailer_number: document.getElementById('trailerNum').value.trim(),
+                    mc_number: document.getElementById('mcNum').value.trim(),
+                    dot_number: document.getElementById('dotNum').value.trim(),
+                    driver_form_submitted: true,
+                    photos_submitted: anyPhotos ? true : false,
+                    truck_photo_url: truckUrl,
+                    vin_photo_url: vinUrl,
+                    cdl_photo_url: cdlUrl,
+                    driver_photo_url: driverUrl,
+                    release_status: 'ACTION REQUIRED', 
+                    last_updated_time: new Date().toISOString()
+                };
+
+                const { data: fetchLoad } = await supabaseClient.from('shipments').select('load_number').eq('secure_token', recordToken);
+                let targetFilterColumn = 'secure_token';
+                if (!fetchLoad || fetchLoad.length === 0) { targetFilterColumn = 'id'; }
+
+                const { error } = await supabaseClient.from('shipments').update(payload).eq(targetFilterColumn, recordToken);
+                if (error) throw error;
+
                 document.getElementById('portalFormCard').innerHTML = `
                     <div class="text-center p-6 space-y-3">
                         <div class="text-3xl">✅</div>
@@ -171,6 +197,10 @@
                         <p class="text-xs text-slate-400">Your information has been successfully registered. The warehouse gate team will run physical comparisons upon terminal check-in.</p>
                     </div>
                 `;
+            } catch (err) {
+                alert("Upload Process Failure: " + err.message);
+                btn.disabled = false;
+                btn.innerText = "Submit Secure Manifest Details";
             }
         });
 

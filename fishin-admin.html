@@ -532,15 +532,32 @@
             } else if (!data.driver_form_submitted) {
                 imgGrid.className = "block text-center p-6 bg-slate-950 rounded-xl border border-slate-850";
                 imgGrid.innerHTML = `<div class="text-slate-500 font-medium font-sans">⏱️ Awaiting Broker Payload Submission</div>`;
-            } else {
+			} else {
                 imgGrid.className = "grid grid-cols-2 gap-2";
-                const imageItems = [{ label: "CDL Photo", stub: "cdl" }, { label: "Decal MC/DOT", stub: "truck" }, { label: "VIN Plate", stub: "vin" }, { label: "Lock Seal", stub: "seal" }];
-                imgGrid.innerHTML = imageItems.map(img => `
-                    <div class="bg-slate-950 border border-slate-800 p-2 rounded-xl flex flex-col items-center justify-center min-h-24 text-center">
-                        <span class="text-[10px] font-semibold text-slate-400 uppercase block mb-1">${img.label}</span>
-                        <span class="text-[10px] text-emerald-400 font-mono">✓ Verified_${img.stub}.jpg</span>
+                
+                // Read the link values directly out of your Supabase storage database columns
+                const attachments = [
+                    { label: "1) Truck Side View", url: data.truck_photo_url },
+                    { label: "2) Tractor VIN Stamp", url: data.vin_photo_url },
+                    { label: "3) Driver's License", url: data.cdl_photo_url },
+                    { label: "4) Driver Face Photo", url: data.driver_photo_url }
+                ];
+                
+                imgGrid.innerHTML = attachments.map(asset => `
+                    <div class="bg-slate-950 border border-slate-800 p-3 rounded-xl flex flex-col items-center justify-between min-h-24 text-center">
+                        <span class="text-[10px] font-semibold text-slate-400 uppercase block mb-1.5">${asset.label}</span>
+                        ${asset.url ? `
+                            <a href="${asset.url}" target="_blank" class="w-full py-1.5 bg-indigo-600/20 hover:bg-indigo-600 border border-indigo-500/30 text-indigo-400 hover:text-white font-bold text-[10px] rounded-lg transition text-center block tracking-wide cursor-pointer">
+                                📄 View Attachment
+                            </a>
+                        ` : `
+                            <span class="text-[10px] text-slate-600 bg-slate-900/40 px-2 py-1 rounded border border-slate-850/60 w-full font-medium">
+                                Dim / Missing
+                            </span>
+                        `}
                     </div>
                 `).join('');
+            }
             }
             document.getElementById('reviewModal').classList.remove('hidden');
         }
