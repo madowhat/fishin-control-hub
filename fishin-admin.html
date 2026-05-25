@@ -7,377 +7,224 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 <body class="bg-[#0b0f19] text-slate-200 antialiased min-h-screen flex flex-col">
-<script>
-        // 🛰️ MASTER DATABASE CONNECTIONS (Production Token Routing API)
-        const supabaseClient = supabase.createClient("https://xknhqscsusfuhodujajy.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhrbmhxc2NzdXNmdWhvZHVqYWp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NDU5MjMsImV4cCI6MjA5NTEyMTkyM30.IqQ_WeKRfg5EO2y8rbn7MAUT1vSMCS-6fIxC2M1oTGw");
-        
-        let activeUser = "";
-        let currentWhFilter = "All";
-        let activeReviewLoad = "";
-        let expandedLoads = new Set(); 
 
-        // 🛡️ AUTHENTICATION ENGINE (Frontend Suffix Mask)
-        async function handleLogin() {
-            const email = document.getElementById('loginEmail').value.trim().toLowerCase();
-            const pass = document.getElementById('loginPass').value.trim();
+    <div id="loginOverlay" class="fixed inset-0 bg-[#0b0f19] z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-sm w-full space-y-4 shadow-2xl">
+            <h2 class="text-xl font-bold text-white text-center">Fishin' Corporate Login</h2>
+            <input type="email" id="loginEmail" placeholder="username@fishinco.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <input type="password" id="loginPass" placeholder="Security Token Access Password" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <button onclick="handleLogin()" class="w-full py-3 bg-indigo-600 font-semibold rounded-xl text-sm text-white hover:bg-indigo-700 transition cursor-pointer">Verify Credentials</button>
+        </div>
+    </div>
+
+    <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center shadow-xl">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-black">F</div>
+            <div>
+                <h1 class="text-md font-bold text-white">The Fishin' Company</h1>
+                <p class="text-[10px] text-slate-400">HQ Global Network Command Queue</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-4 text-xs">
+            <span class="text-slate-400">Operator: <strong id="currentUserLabel" class="text-slate-200">Not Verified</strong></span>
+            <button onclick="openIngestion()" class="px-3.5 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition cursor-pointer shadow-md">Create New Shipment</button>
+            <button onclick="handleLogout()" class="px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-rose-400 border border-slate-700 rounded-lg transition font-medium text-xs cursor-pointer">Log Out</button>
+        </div>
+    </header>
+
+    <section class="bg-slate-900/30 border-b border-slate-800/50 px-6 py-3 flex gap-2">
+        <button onclick="filterWarehouse('All')" id="wh-All" class="px-3 py-1 bg-slate-800 text-white border border-slate-700 text-xs font-semibold rounded-md cursor-pointer">All Warehouses</button>
+        <button onclick="filterWarehouse('Baltimore')" id="wh-Baltimore" class="px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white">Baltimore</button>
+        <button onclick="filterWarehouse('Mobile')" id="wh-Mobile" class="px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white">Mobile</button>
+        <button onclick="filterWarehouse('Burien')" id="wh-Burien" class="px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white">Burien</button>
+    </section>
+
+    <main class="flex-1 p-6 overflow-x-auto">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-950 text-slate-400 text-[10px] font-bold uppercase tracking-wider border-b border-slate-800">
+                        <th class="py-3.5 px-4">Warehouse</th>
+                        <th class="py-3.5 px-4">Sched Date/Time</th>
+                        <th class="py-3.5 px-4">Load # (Unique ID)</th>
+                        <th class="py-3.5 px-4">Confirmation #</th>
+                        <th class="py-3.5 px-4">SO #</th>
+                        <th class="py-3.5 px-4">Destination</th>
+                        <th class="py-3.5 px-4">Carrier Assigned</th>
+                        <th class="py-3.5 px-4">Carrier Entry Data</th>
+                        <th class="py-3.5 px-4 w-52">Operational Release Status</th>
+                        <th class="py-3.5 px-4">Audit Trace</th>
+                    </tr>
+                </thead>
+                <tbody id="adminTableBody" class="divide-y divide-slate-800/60 text-xs"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <div id="ingestModal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 z-40">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-lg w-full space-y-4 shadow-2xl relative max-h-[90vh] flex flex-col">
+            <h3 class="text-sm font-bold text-white border-b border-slate-800 pb-2 flex-none">Generate Secure Carrier Ingestion Token</h3>
             
-            if(email.endsWith("@fishinco.com") && pass === "Fishin2026") {
-                activeUser = email;
-                document.getElementById('currentUserLabel').innerText = activeUser;
-                document.getElementById('loginOverlay').classList.add('hidden');
-                
-                // Show Logout button in header if you choose to build the UI node later
-                fetchMasterData();
-                
-                // Realtime listening synchronization loop
-                supabaseClient.channel('room1').on('postgres_changes', {event:'*', schema:'public', table:'shipments'}, fetchMasterData).subscribe();
-            } else { alert("Invalid access credentials for internal company nodes."); }
-        }
-
-        // 🔒 LOGOUT SESSION CLEANER
-        function handleLogout() {
-            activeUser = "";
-            document.getElementById('currentUserLabel').innerText = "Not Verified";
-            document.getElementById('loginEmail').value = "";
-            document.getElementById('loginPass').value = "";
-            document.getElementById('loginOverlay').classList.remove('hidden');
-        }
-
-        // 📊 GLOBAL COMMAND DISPATCH QUEUE Extraction 
-        async function fetchMasterData() {
-            let query = supabaseClient.from('shipments').select('*').order('created_at', {ascending: false});
-            if(currentWhFilter !== "All") query = query.eq('warehouse_name', currentWhFilter);
-            const { data } = await query;
-            const tbody = document.getElementById('adminTableBody');
-            tbody.innerHTML = "";
-
-            if (!data) return;
-
-            data.forEach(row => {
-                const stops = row.stops_json || [];
-                const isMultiStop = stops.length > 1;
-                const isExpanded = expandedLoads.has(row.load_number);
-
-                let statusBadgeColor = "text-slate-400 bg-slate-950 border-slate-800";
-                if (row.release_status === 'ACTION REQUIRED') {
-                    statusBadgeColor = "text-amber-400 bg-amber-950/40 border-amber-900/60 animate-pulse";
-                } else if (row.release_status === 'APPROVED TO LOAD') {
-                    statusBadgeColor = "text-emerald-400 bg-emerald-950/50 border-emerald-900/60";
-                } else if (row.release_status === 'HOLD – DO NOT LOAD') {
-                    statusBadgeColor = "text-rose-400 bg-rose-950/60 border-rose-900/60";
-                }
-
-                let soCell = "", destCell = "";
-                if (isMultiStop && !isExpanded) {
-                    soCell = `<span class="text-amber-500 font-bold bg-amber-950/20 px-1.5 py-0.5 rounded text-[10px] uppercase border border-amber-900/30">Multi-Stop (${stops.length})</span>`;
-                    destCell = `<span class="text-slate-400 italic">Row Collapsed</span>`;
-                } else {
-                    soCell = stops.map(s => `<div class="font-mono text-slate-300 py-0.5">${s.so_number || '---'}</div>`).join('');
-                    destCell = stops.map(s => `<div class="text-slate-300 font-medium py-0.5">${s.destination || '---'}</div>`).join('');
-                }
-
-                const tr = document.createElement('tr');
-                tr.className = `hover:bg-slate-800/30 border-b border-slate-800/40 align-middle ${isMultiStop ? 'cursor-pointer' : ''}`;
-                
-                tr.onclick = (e) => {
-                    if (e.target.classList.contains('load-click-trigger') || e.target.closest('.action-btn-trigger')) return;
-                    if (isMultiStop) {
-                        if (expandedLoads.has(row.load_number)) expandedLoads.delete(row.load_number);
-                        else expandedLoads.add(row.load_number);
-                        fetchMasterData();
-                    }
-                };
-
-                tr.innerHTML = `
-                    <td class="p-3 font-semibold text-slate-300">${row.warehouse_name}</td>
-                    <td class="p-3 font-mono font-bold text-slate-400">${row.pickup_date}<br><span class="text-indigo-400 text-[10px]">${row.pickup_time}</span></td>
-                    <td class="p-3 font-mono text-indigo-400 font-black hover:underline load-click-trigger" onclick="openMaintenanceModal('${row.load_number}')">
-                        ${isMultiStop ? (isExpanded ? '▼ ' : '▶ ') : ''}${row.load_number}
-                    </td>
-                    <td class="p-3 font-mono font-bold text-slate-300">${row.conf_number}</td>
-                    <td class="p-3">${soCell}</td>
-                    <td class="p-3">${destCell}</td>
-                    <td class="p-3 font-medium text-slate-200">${row.carrier_name}<br><span class="text-[9px] font-mono text-slate-500">${row.carrier_type}</span></td>
-                    <td class="p-3">
-                        <button onclick="openReviewModal('${row.load_number}')" class="action-btn-trigger px-2 py-1 bg-slate-800 border border-slate-700 text-[10px] rounded hover:bg-slate-700 cursor-pointer transition">🔍 View Form</button>
-                    </td>
-                    <td class="p-3">
-                        <span class="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-md border ${statusBadgeColor}">
-                            ${row.release_status}
-                        </span>
-                    </td>
-                    <td class="p-3 font-mono text-[10px] text-slate-500">👤 ${row.updated_by || 'System'}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        // 🚀 CRITICAL FIX: CACHE CLEARING MODAL WINDOW RESET
-        function openIngestion() { 
-            // Purge and flush cache values explicitly to guarantee a blank canvas [cite: 1936, 1937]
-            document.getElementById('formLoad').value = "";
-            document.getElementById('formConf').value = "";
-            document.getElementById('formCarrier').value = "";
-            document.getElementById('formTime').value = "";
-            
-            // Re-establish local systemic clock anchors
-            document.getElementById('formDate').value = new Date().toISOString().split('T')[0];
-            document.getElementById('formWh').selectedIndex = 0;
-            document.getElementById('formType').selectedIndex = 0;
-            
-            const container = document.getElementById('stopInputsContainer');
-            container.innerHTML = "";
-            appendStopRow();
-
-            document.getElementById('ingestModal').classList.remove('hidden'); 
-        }
-
-        function closeIngestion() { document.getElementById('ingestModal').classList.add('hidden'); }
-
-        function appendStopRow() {
-            const container = document.getElementById('stopInputsContainer');
-            const stopCount = container.children.length + 1;
-            
-            const div = document.createElement('div');
-            div.className = "bg-slate-950 p-3 rounded-xl border border-slate-850 space-y-2 relative stop-entry-row shadow-inner";
-            div.innerHTML = `
-                <div class="flex justify-between items-center text-[10px] text-slate-500 font-mono">
-                    <span>Drop Route Stop Assignment #${stopCount}</span>
-                    ${stopCount > 1 ? `<button onclick="this.parentElement.parentElement.remove()" class="text-rose-400 hover:text-rose-300 font-bold cursor-pointer">Remove Drop</button>` : ''}
+            <div class="overflow-y-auto pr-1 flex-1 space-y-4">
+                <div class="space-y-3 text-xs bg-slate-950/40 p-3 rounded-xl border border-slate-850">
+                    <div class="font-bold text-indigo-400 uppercase tracking-wider text-[10px]">Step 1: Core Load & Scheduling (Warehouse Local Time)</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-slate-400 mb-1">Shippers Edge Load #</label>
+                            <input type="text" id="formLoad" placeholder="Enter Unique Load ID" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono font-bold focus:border-indigo-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Confirmation #</label>
+                            <input type="text" id="formConf" placeholder="Enter Master Confirmation ID" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono font-bold focus:border-indigo-500 outline-none">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-slate-400 mb-1">Pickup Scheduled Date</label>
+                            <input type="date" id="formDate" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-bold h-[38px]">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Pickup Time (24HR Clock)</label>
+                            <input type="text" id="formTime" placeholder="e.g. 14:30 or 08:00" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono font-bold placeholder:text-slate-600">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-slate-400 mb-1">Target Warehouse Origin</label>
+                            <select id="formWh" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white h-[38px]">
+                                <option value="Baltimore">Baltimore (EST)</option>
+                                <option value="Mobile">Mobile (CST)</option>
+                                <option value="Burien">Burien (PST)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Carrier Operator Name</label>
+                            <input type="text" id="formCarrier" placeholder="e.g. Shaffer Trucking" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">Carrier Group Type</label>
+                        <select id="formType" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                            <option value="Broker">Broker Contract</option><option value="Asset-Based">Asset Core Whitelist</option>
+                        </select>
+                    </div>
                 </div>
-                <div>
-                    <input type="text" placeholder="Sales Order ID (SO #)" class="stop-so w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-mono">
+
+                <div class="space-y-3 text-xs">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-indigo-400 uppercase tracking-wider text-[10px]">Step 2: Destination Drop Targets</span>
+                        <button onclick="appendStopRow()" class="px-2.5 py-1 bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 rounded-md font-bold hover:bg-indigo-600 hover:text-white transition cursor-pointer flex items-center gap-1">
+                            <span>+</span> Add Drop Point
+                        </button>
+                    </div>
+                    <div id="stopInputsContainer" class="space-y-2"></div>
                 </div>
-                <input type="text" placeholder="Full Destination Delivery Address" class="stop-dest w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white">
-            `;
-            container.appendChild(div);
-        }
+            </div>
 
-        // 📝 GENERATE INGESTION DATA PIPELINE
-        async function submitShipment() {
-            const loadNum = document.getElementById('formLoad').value.trim();
-            const confNum = document.getElementById('formConf').value.trim();
-            let pickDate = document.getElementById('formDate').value;
-            let pickTime = document.getElementById('formTime').value.trim();
+            <div class="pt-3 border-t border-slate-800 flex justify-end gap-2 text-xs flex-none">
+                <button onclick="closeIngestion()" class="px-3 py-2 bg-slate-800 text-slate-400 rounded-lg cursor-pointer">Cancel</button>
+                <button onclick="submitShipment()" class="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition cursor-pointer shadow-md">Create Load Asset</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="maintenanceModal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 z-40">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full space-y-4 shadow-2xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2 flex-none">
+                <h3 class="text-sm font-bold text-white">Load Master Record Maintenance</h3>
+                <button onclick="closeMaintenance()" class="text-slate-400 hover:text-white text-md font-bold cursor-pointer">&times;</button>
+            </div>
+            <div class="space-y-3 text-xs overflow-y-auto flex-1 pr-1">
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-slate-400 mb-1">Origin Warehouse</label>
+                        <select id="maintWh" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                            <option value="Baltimore">Baltimore</option><option value="Mobile">Mobile</option><option value="Burien">Burien</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">Confirmation #</label>
+                        <input type="text" id="maintConf" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono font-bold">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-slate-400 mb-1">Pickup Date</label>
+                        <input type="date" id="maintDate" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">Pickup Time (24HR)</label>
+                        <input type="text" id="maintTime" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono font-bold">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-slate-400 mb-1">Shippers Edge Load #</label>
+                        <input type="text" id="maintLoad" readonly class="w-full bg-slate-950 border border-slate-800/80 rounded-lg p-2 text-slate-500 font-mono font-bold focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">Carrier Assignment</label>
+                        <input type="text" id="maintCarrier" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-slate-400 mb-1">Assignment Type</label>
+                        <select id="maintType" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                            <option value="Broker">Broker Contract</option><option value="Asset-Based">Asset Core Whitelist</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">Release Security State</label>
+                        <select id="maintStatus" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-semibold">
+                            <option value="AWAITING CARRIER DATA">AWAITING CARRIER DATA</option>
+                            <option value="ACTION REQUIRED">ACTION REQUIRED</option>
+                            <option value="APPROVED TO LOAD">APPROVED TO LOAD</option>
+                            <option value="HOLD – DO NOT LOAD">HOLD – DO NOT LOAD</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-800/80 pt-2 space-y-2">
+                    <div class="font-bold text-slate-400 text-[10px] uppercase">Nested Multi-Stop Destination Manifest Array</div>
+                    <div id="maintStopsContainer" class="space-y-2"></div>
+                </div>
+            </div>
+            <div class="pt-3 border-t border-slate-800/80 flex justify-between items-center text-xs flex-none">
+                <button onclick="deleteShipment()" class="px-3 py-2 bg-rose-950/80 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-semibold rounded-lg transition cursor-pointer">Delete Load Asset</button>
+                <div class="flex gap-2">
+                    <button onclick="closeMaintenance()" class="px-3 py-2 bg-slate-800 text-slate-400 rounded-lg cursor-pointer">Close Window</button>
+                    <button onclick="saveShipmentEdits()" class="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition cursor-pointer">Save Modifications</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="reviewModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-40">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 max-w-lg w-full space-y-4 shadow-2xl text-xs">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                <h3 class="text-sm font-bold text-white">Broker Submitted Dispatch Profile & Form Attachments</h3>
+                <button onclick="closeReviewModal()" class="text-slate-400 hover:text-white text-md font-bold cursor-pointer">&times;</button>
+            </div>
             
-            if(!loadNum || !confNum) { alert("Both Shippers Edge Load # and Confirmation # fields are required."); return; }
-            if(!pickDate) pickDate = new Date().toISOString().split('T')[0];
-            if(!pickTime) pickTime = "00:00";
-
-            const stopRows = document.querySelectorAll('#stopInputsContainer .stop-entry-row');
-            const stopsArray = [];
-            stopRows.forEach(row => {
-                const so = row.querySelector('.stop-so').value.trim();
-                const dest = row.querySelector('.stop-dest').value.trim();
-                if(so || dest) stopsArray.push({ so_number: so, destination: dest });
-            });
-
-            if(stopsArray.length === 0) { alert("You must provide at least one active destination delivery drop."); return; }
-
-            // Phase 1 Encrypted Secure Suffix Token Generator Mask [cite: 2289]
-            const secureUniqueToken = "tok_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-
-            const { data, error } = await supabaseClient.from('shipments').insert([{
-                load_number: loadNum,
-                conf_number: confNum,
-                pickup_date: pickDate,
-                pickup_time: pickTime,
-                warehouse_name: document.getElementById('formWh').value, 
-                carrier_name: document.getElementById('formCarrier').value, 
-                carrier_type: document.getElementById('formType').value,
-                stops_json: stopsArray,
-                secure_token: secureUniqueToken, // Inserts structural link identity
-                release_status: 'AWAITING CARRIER DATA',
-                updated_by: activeUser
-            }]).select();
-
-            if (error) { alert("Database Error: " + error.message); return; }
-
-            if (data && data.length > 0) {
-                // Static URL path binding rules
-                const portalUrl = `https://the-fishin-company-portal.onrender.com/carrier-portal.html?token=${secureUniqueToken}`;
-                navigator.clipboard.writeText(portalUrl);
-                alert(`Token generated and link copied to clipboard:\n${portalUrl}`);
-                closeIngestion();
-                fetchMasterData();
-            }
-        }
-
-        // 🛠️ LOAD MAINTENANCE AND DATABASE REWRITE ENGINE
-        async function openMaintenanceModal(loadNum) {
-            const { data, error } = await supabaseClient.from('shipments').select('*').eq('load_number', loadNum).single();
-            if (error || !data) return;
-
-            document.getElementById('maintWh').value = data.warehouse_name;
-            document.getElementById('maintLoad').value = data.load_number;
-            document.getElementById('maintConf').value = data.conf_number;
-            document.getElementById('maintDate').value = data.pickup_date;
-            document.getElementById('maintTime').value = data.pickup_time;
-            document.getElementById('maintCarrier').value = data.carrier_name;
-            document.getElementById('maintType').value = data.carrier_type;
-            document.getElementById('maintStatus').value = data.release_status;
-
-            const container = document.getElementById('maintStopsContainer');
-            container.innerHTML = "";
-            const stops = data.stops_json || [];
-            stops.forEach((stop, idx) => {
-                const div = document.createElement('div');
-                div.className = "maint-stop-row bg-slate-950 p-2.5 rounded-lg border border-slate-850 space-y-2";
-                div.innerHTML = `
-                    <div class="text-[9px] font-mono text-slate-500">Sequence Drop Row #${idx + 1}</div>
-                    <input type="text" value="${stop.so_number || ''}" class="maint-so w-full bg-slate-900 border border-slate-800 rounded p-1.5 font-mono text-white" placeholder="Sales Order (SO #)">
-                    <input type="text" value="${stop.destination || ''}" class="maint-dest w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-white" placeholder="Destination Address">
-                `;
-                container.appendChild(div);
-            });
-
-            document.getElementById('maintenanceModal').classList.remove('hidden');
-        }
-
-        function closeMaintenance() { document.getElementById('maintenanceModal').classList.add('hidden'); }
-
-        async function saveShipmentEdits() {
-            const loadNum = document.getElementById('maintLoad').value;
-            const rows = document.querySelectorAll('#maintStopsContainer .maint-stop-row');
-            const updatedStops = [];
-            rows.forEach(row => {
-                const so = row.querySelector('.maint-so').value.trim();
-                const dest = row.querySelector('.maint-dest').value.trim();
-                if(so || dest) updatedStops.push({ so_number: so, destination: dest });
-            });
-
-            // Added explicit RLS protection rules mapping
-            const { error } = await supabaseClient.from('shipments').update({
-                warehouse_name: document.getElementById('maintWh').value,
-                conf_number: document.getElementById('maintConf').value,
-                pickup_date: document.getElementById('maintDate').value,
-                pickup_time: document.getElementById('maintTime').value,
-                carrier_name: document.getElementById('maintCarrier').value,
-                carrier_type: document.getElementById('maintType').value,
-                release_status: document.getElementById('maintStatus').value,
-                stops_json: updatedStops,
-                updated_by: activeUser,
-                last_updated_time: new Date()
-            }).eq('load_number', loadNum);
-
-            if (error) { alert("Error saving modifications: " + error.message); return; }
-            closeMaintenance();
-            fetchMasterData();
-        }
-
-        async function deleteShipment() {
-            const loadNum = document.getElementById('maintLoad').value;
-            if (confirm(`⚠️ permanently delete Load Asset ${loadNum}?`)) {
-                const { error } = await supabaseClient.from('shipments').delete().eq('load_number', loadNum);
-                if (error) { alert("Deletion failure: " + error.message); return; }
-                closeMaintenance();
-                fetchMasterData();
-            }
-        }
-
-        // 🔎 BROKER DATA & SECURE TOKEN REGENERATION PORTAL
-        async function openReviewModal(loadNum) {
-            activeReviewLoad = loadNum;
-            const { data, error } = await supabaseClient.from('shipments').select('*').eq('load_number', loadNum).single();
-            if (error || !data) return;
-            
-            document.getElementById('revDriver').innerText = data.driver_name || 'TBD';
-            document.getElementById('revLic').innerText = data.driver_license || 'TBD';
-            document.getElementById('revPhone').innerText = data.driver_phone || 'TBD';
-            document.getElementById('revTruck').innerText = data.truck_number || 'TBD';
-            document.getElementById('revTrailer').innerText = data.trailer_number || 'TBD';
-            document.getElementById('revMC').innerText = data.mc_number || 'TBD';
-            document.getElementById('revDOT').innerText = data.dot_number || 'TBD';
-
-            // 🔒 GENERATED BROKER PORTAL LINK COMPONENT VIEW
-            const activeToken = data.secure_token || data.id;
-            const absoluteLinkPath = `https://the-fishin-company-portal.onrender.com/carrier-portal.html?token=${activeToken}`;
-            
-            // Check if our token display box exists in the review layout modal, or dynamically inject it cleanly
-            let linkWrapper = document.getElementById('reviewSecureLinkWrapper');
-            if(!linkWrapper) {
-                linkWrapper = document.createElement('div');
-                linkWrapper.id = "reviewSecureLinkWrapper";
-                linkWrapper.className = "mb-4 p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-1.5";
-                const modalBody = document.querySelector('#reviewModal > div');
-                modalBody.insertBefore(linkWrapper, modalBody.children[1]);
-            }
-            
-            linkWrapper.innerHTML = `
+            <div id="reviewSecureLinkWrapper" class="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-1.5">
                 <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Broker Secure Entry Pathway Link</label>
                 <div class="flex gap-2">
-                    <input type="text" id="reviewSecureLinkField" readonly value="${absoluteLinkPath}" class="w-full bg-slate-900 border border-slate-800 text-indigo-400 text-[11px] font-mono rounded-lg p-2 focus:outline-none select-all">
+                    <input type="text" id="reviewSecureLinkField" readonly class="w-full bg-slate-900 border border-slate-800 text-indigo-400 text-[11px] font-mono rounded-lg p-2 focus:outline-none select-all">
                     <button onclick="regenerateActiveBrokerToken()" class="px-2.5 py-1 bg-slate-800 border border-slate-700 text-[10px] rounded hover:bg-slate-700 font-semibold cursor-pointer text-slate-300 transition shrink-0">🔄 Regenerate</button>
                 </div>
-            `;
+            </div>
 
-            const imgGrid = document.getElementById('imageReviewGrid');
-            imgGrid.innerHTML = ""; 
+            <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2 font-mono text-slate-300">
+                <p>Driver Name: <span id="revDriver" class="text-white font-sans font-bold">---</span></p>
+                <p>License ID: <span id="revLic">---</span></p>
+                <p>Phone Line: <span id="revPhone">---</span></p>
+                <p>Tractor Unit: <span id="revTruck">---</span></p>
+                <p>Trailer Unit: <span id="revTrailer">---</span></p>
+                <p>Authority: MC# <span id="revMC">---</span> | DOT# <span id="revDOT">---</span></p>
+            </div>
 
-            if (data.carrier_type === 'Asset-Based') {
-                imgGrid.className = "block text-center p-4 bg-indigo-950/30 border border-indigo-900/40 rounded-xl";
-                imgGrid.innerHTML = `<div class="text-indigo-400 font-bold text-sm">🛡️ Asset Carrier Whitelist Node</div>`;
-            } else if (!data.driver_form_submitted) {
-                imgGrid.className = "block text-center p-6 bg-slate-950 rounded-xl border border-slate-850";
-                imgGrid.innerHTML = `<div class="text-slate-500 font-medium font-sans">⏱️ Awaiting Broker Payload Submission</div>`;
-            } else {
-                imgGrid.className = "grid grid-cols-2 gap-2";
-                const imageItems = [{ label: "CDL Photo", stub: "cdl" }, { label: "Decal MC/DOT", stub: "truck" }, { label: "VIN Plate", stub: "vin" }, { label: "Lock Seal", stub: "seal" }];
-                imgGrid.innerHTML = imageItems.map(img => `
-                    <div class="bg-slate-950 border border-slate-800 p-2 rounded-xl flex flex-col items-center justify-center min-h-24 text-center">
-                        <span class="text-[10px] font-semibold text-slate-400 uppercase block mb-1">${img.label}</span>
-                        <span class="text-[10px] text-emerald-400 font-mono">✓ Verified_${img.stub}.jpg</span>
-                    </div>
-                `).join('');
-            }
-            document.getElementById('reviewModal').classList.remove('hidden');
-        }
-
-        // 🔄 REGENERATE AND RE-ARM THE ACTIVE CARRIER PORTAL ACCESS TOKEN 
-        async function regenerateActiveBrokerToken() {
-            if (!activeReviewLoad) return;
-            
-            const freshSecureToken = "tok_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-            const freshPortalUrl = `https://the-fishin-company-portal.onrender.com/carrier-portal.html?token=${freshSecureToken}`;
-
-            try {
-                // Wipe old token rules out, resetting creation windows to right now [cite: 2324]
-                const { error } = await supabaseClient.from('shipments').update({
-                    secure_token: freshSecureToken,
-                    created_at: new Date().toISOString(), // Refreshes the 24-hour baseline dynamic rule calculations [cite: 2324]
-                    release_status: 'AWAITING CARRIER DATA', // Return back to structural default waiting pool [cite: 1883, 1902]
-                    updated_by: activeUser
-                }).eq('load_number', activeReviewLoad);
-
-                if (error) throw error;
-
-                // Sync field immediately and fire snapshot link to clipboard [cite: 2325]
-                document.getElementById('reviewSecureLinkField').value = freshPortalUrl;
-                navigator.clipboard.writeText(freshPortalUrl);
-                alert("Success!\n\nNew secure token path generated and copied directly to your clipboard. Old token has been completely invalidated.");
-                
-                fetchMasterData();
-            } catch (err) {
-                alert("Token Regeneration Interrupted: " + err.message);
-            }
-        }
-
-        function closeReviewModal() { document.getElementById('reviewModal').classList.add('hidden'); }
-
-        async function updateStatus(status) {
-            await supabaseClient.from('shipments').update({ release_status: status, updated_by: activeUser, last_updated_time: new Date() }).eq('load_number', activeReviewLoad);
-            document.getElementById('reviewModal').classList.add('hidden');
-            fetchMasterData();
-        }
-
-        function filterWarehouse(wh) {
-            currentWhFilter = wh;
-            ['All', 'Baltimore', 'Mobile', 'Burien'].forEach(w => {
-                const element = document.getElementById(`wh-${w}`);
-                if (element) {
-                    element.className = w === wh ? "px-3 py-1 bg-slate-800 text-white border border-slate-700 text-xs font-semibold rounded-md cursor-pointer" : "px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white";
-                }
-            });
-            fetchMasterData();
-        }
-    </script>
+            <div class="space-y-2">
+                <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Submitted Security Images</h4>
+                <div id="imageReviewGrid" class="grid grid-cols-2 gap-2"></div>
+            </div>
