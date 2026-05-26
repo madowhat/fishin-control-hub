@@ -302,10 +302,10 @@
 
         // Master Data Extraction Queue
         async function fetchMasterData() {
+            // 🟢 STEP 1: Keep server-side grouping fast by date
             let query = supabaseClient.from('shipments')
                 .select('*')
-                .order('pickup_date', { ascending: true })
-                .order('pickup_time', { ascending: true });
+                .order('pickup_date', { ascending: true });
                 
             if(currentWhFilter !== "All") query = query.eq('warehouse_name', currentWhFilter);
             const { data } = await query;
@@ -314,6 +314,25 @@
 
             if (!data) return;
 
+            // 🟢 STEP 2: Mathematical Time Normalization Sort (Earliest First)
+            data.sort((a, b) => {
+                // If pickup dates differ, let alphabetical date string order handle it
+                const dateCompare = a.pickup_date.localeCompare(b.pickup_date);
+                if (dateCompare !== 0) return dateCompare;
+
+                // Safe helper to convert any "H:MM" or "HH:MM" 24hr string into total minutes from midnight
+                function parseTimeToMinutes(timeStr) {
+                    if (!timeStr) return 0;
+                    const parts = timeStr.trim().split(':');
+                    const hours = parseInt(parts[0], 10) || 0;
+                    const minutes = parseInt(parts[1], 10) || 0;
+                    return (hours * 60) + minutes;
+                }
+
+                return parseTimeToMinutes(a.pickup_time) - parseTimeToMinutes(b.pickup_time);
+            });
+
+            // STEP 3: Render the perfectly sorted data matrix
             data.forEach(row => {
                 const stops = row.stops_json || [];
                 const isMultiStop = stops.length > 1;
