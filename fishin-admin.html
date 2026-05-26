@@ -240,19 +240,47 @@
         let activeReviewLoad = "";
         let expandedLoads = new Set(); 
 
-        // OPERATOR REGISTRATION DOMAIN LOOP
+		// 🛡️ INDIVIDUAL CREDENTIAL DATABASE LOOKUP VALIDATION
         async function handleLogin() {
-            const email = document.getElementById('loginEmail').value.trim().toLowerCase();
-            const pass = document.getElementById('loginPass').value.trim();
+            const emailInput = document.getElementById('loginEmail').value.trim().toLowerCase();
+            const passInput = document.getElementById('loginPass').value.trim();
             
-            if(email.endsWith("@fishinco.com") && pass === "Fishin2026") {
-                activeUser = email;
-                document.getElementById('currentUserLabel').innerText = activeUser;
-                document.getElementById('loginOverlay').classList.add('hidden');
-                
-                fetchMasterData();
-                supabaseClient.channel('room1').on('postgres_changes', {event:'*', schema:'public', table:'shipments'}, fetchMasterData).subscribe();
-            } else { alert("Invalid access credentials for internal company domains."); }
+            // 1. Enforce corporate domain email routing rule before running database queries
+            if (!emailInput.endsWith("@fishinco.com")) {
+                alert("Access Denied: You must use an authorized @fishinco.com corporate email account.");
+                return;
+            }
+
+            try {
+                // 2. Query the admin_users table for a row matching the provided email
+                const { data: userRecord, error } = await supabaseClient
+                    .from('admin_users')
+                    .select('*')
+                    .eq('email', emailInput)
+                    .single(); // Forces exactly one object back or null
+
+                if (error || !userRecord) {
+                    alert("Access Denied: Invalid username or corporate record not found.");
+                    return;
+                }
+
+                // 3. Evaluate the plain password match string directly
+                if (userRecord.password === passInput) {
+                    activeUser = emailInput;
+                    
+                    // Assign the custom operator name to your visible label text element
+                    document.getElementById('currentUserLabel').innerText = userRecord.operator_name;
+                    document.getElementById('loginOverlay').classList.add('hidden');
+                    
+                    // Fire your main data extraction queues
+                    fetchMasterData();
+                    supabaseClient.channel('room1').on('postgres_changes', {event:'*', schema:'public', table:'shipments'}, fetchMasterData).subscribe();
+                } else {
+                    alert("Access Denied: Incorrect password configuration token.");
+                }
+            } catch (err) {
+                alert("Authentication Interrupted: " + err.message);
+            }
         }
 
         // INJECT LIVE CLEAN LOGOUT ROUTINE RESET MASK
