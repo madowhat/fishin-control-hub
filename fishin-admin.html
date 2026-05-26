@@ -240,56 +240,64 @@
         let activeReviewLoad = "";
         let expandedLoads = new Set(); 
 
-		// 🛡️ INDIVIDUAL CREDENTIAL DATABASE LOOKUP VALIDATION
+		// 🛡️ SECURE SUBAPASE AUTHENTICATION LOGIN ENGINE
         async function handleLogin() {
             const emailInput = document.getElementById('loginEmail').value.trim().toLowerCase();
             const passInput = document.getElementById('loginPass').value.trim();
             
-            // 1. Enforce corporate domain email routing rule before running database queries
+            // 1. Enforce corporate suffix boundaries before knocking on the auth gate
             if (!emailInput.endsWith("@fishinco.com")) {
                 alert("Access Denied: You must use an authorized @fishinco.com corporate email account.");
                 return;
             }
 
             try {
-                // 2. Query the admin_users table for a row matching the provided email
-                const { data: userRecord, error } = await supabaseClient
-                    .from('admin_users')
-                    .select('*')
-                    .eq('email', emailInput)
-                    .single(); // Forces exactly one object back or null
+                // 2. Submit credentials directly to Supabase's secure built-in Auth server
+                const { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email: emailInput,
+                    password: passInput
+                });
 
-                if (error || !userRecord) {
-                    alert("Access Denied: Invalid username or corporate record not found.");
+                // If password fails or user isn't invited yet, Supabase natively blocks entry
+                if (error) {
+                    alert("Access Denied: " + error.message);
                     return;
                 }
 
-                // 3. Evaluate the plain password match string directly
-                if (userRecord.password === passInput) {
-                    activeUser = emailInput;
+                // 3. Success: Pull the authenticated user information down cleanly
+                if (data.user) {
+                    activeUser = data.user.email;
                     
-                    // Assign the custom operator name to your visible label text element
-                    document.getElementById('currentUserLabel').innerText = userRecord.operator_name;
+                    // Display the verified email inside your existing operator label element
+                    document.getElementById('currentUserLabel').innerText = activeUser;
                     document.getElementById('loginOverlay').classList.add('hidden');
                     
-                    // Fire your main data extraction queues
+                    // Fire up your live dashboard extraction streams
                     fetchMasterData();
                     supabaseClient.channel('room1').on('postgres_changes', {event:'*', schema:'public', table:'shipments'}, fetchMasterData).subscribe();
-                } else {
-                    alert("Access Denied: Incorrect password configuration token.");
                 }
             } catch (err) {
-                alert("Authentication Interrupted: " + err.message);
+                alert("Authentication Process Interrupted: " + err.message);
             }
         }
 
-        // INJECT LIVE CLEAN LOGOUT ROUTINE RESET MASK
-        function handleLogout() {
-            activeUser = "";
-            document.getElementById('currentUserLabel').innerText = "Not Verified";
-            document.getElementById('loginEmail').value = "";
-            document.getElementById('loginPass').value = "";
-            document.getElementById('loginOverlay').classList.remove('hidden');
+        // 🔒 SECURE SESSION DESTRUCTION ENGINE
+        async function handleLogout() {
+            try {
+                // Tells Supabase to completely invalidate this browser's tracking token session
+                await supabaseClient.auth.signOut();
+                
+                // Clear state variables and completely lock the screen back down
+                activeUser = "";
+                document.getElementById('currentUserLabel').innerText = "Not Verified";
+                document.getElementById('loginEmail').value = "";
+                document.getElementById('loginPass').value = "";
+                document.getElementById('loginOverlay').classList.remove('hidden');
+                
+                alert("Logged out safely. Current session token invalidated.");
+            } catch (err) {
+                console.error("Logout failure:", err.message);
+            }
         }
 
         // Master Data Extraction Queue
