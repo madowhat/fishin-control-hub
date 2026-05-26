@@ -302,7 +302,11 @@
 
         // Master Data Extraction Queue
         async function fetchMasterData() {
-            let query = supabaseClient.from('shipments').select('*').order('created_at', {ascending: false});
+            let query = supabaseClient.from('shipments')
+                .select('*')
+                .order('pickup_date', { ascending: true })
+                .order('pickup_time', { ascending: true });
+                
             if(currentWhFilter !== "All") query = query.eq('warehouse_name', currentWhFilter);
             const { data } = await query;
             const tbody = document.getElementById('adminTableBody');
@@ -408,11 +412,20 @@
             container.appendChild(div);
         }
 
+        // 🛰️ GENERATE SECURE CARRIER INGESTION TOKEN & PERSIST TO POSTGRES TABLE
         async function submitShipment() {
             const loadNum = document.getElementById('formLoad').value.trim();
             const confNum = document.getElementById('formConf').value.trim();
             let pickDate = document.getElementById('formDate').value;
             let pickTime = document.getElementById('formTime').value.trim();
+            
+            // Extract and clean the carrier name input field parameters
+            let rawCarrierName = document.getElementById('formCarrier').value.trim();
+            let carrierTypeSelection = document.getElementById('formType').value;
+
+            // Initialize placeholder variables for corporate whitelists
+            let assignedMcNumber = null;
+            let assignedDotNumber = null;
             
             if(!loadNum || !confNum) { alert("Both Shippers Edge Load # and Confirmation # fields are required."); return; }
             if(!pickDate) pickDate = new Date().toISOString().split('T')[0];
@@ -428,21 +441,39 @@
 
             if(stopsArray.length === 0) { alert("You must provide at least one active destination delivery drop."); return; }
 
+            // 🟢 YOUR NEW SUPERIOR APPROACH: Evaluation strictly upon saving
+            // If the operator entered the word SHAFFER anywhere in the carrier field, auto-populate the data parameters
+            if (rawCarrierName.toUpperCase().includes('SHAFFER')) {
+                carrierTypeSelection = 'Asset-Based'; // Auto-force to Asset-Based rules mapping
+                assignedMcNumber = '126118';          // Hardcoded asset lookup assignment strings
+                assignedDotNumber = '073705';         // Hardcoded asset lookup assignment strings
+                
+                // Visual validation confirmation prompt for the corporate user log
+                console.log("Core Whitelist Matching Rule Activated: Shaffer identity matched and parameters populated successfully.");
+            }
+
             const secureUniqueToken = "tok_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 
-            const { data, error } = await supabaseClient.from('shipments').insert([{
+            // Ingest all combined variables directly into the new Supabase payload structure
+            const insertionPayload = {
                 load_number: loadNum,
                 conf_number: confNum,
                 pickup_date: pickDate,
                 pickup_time: pickTime,
                 warehouse_name: document.getElementById('formWh').value, 
-                carrier_name: document.getElementById('formCarrier').value, 
-                carrier_type: document.getElementById('formType').value,
+                carrier_name: rawCarrierName, 
+                carrier_type: carrierTypeSelection, // Saved under the updated checked variable
                 stops_json: stopsArray,
                 secure_token: secureUniqueToken,
                 release_status: 'AWAITING CARRIER DATA',
-                updated_by: activeUser
-            }]).select();
+                updated_by: activeUser,
+                
+                // 🟢 Pre-fills populate seamlessly into the table row data array map
+                mc_number: assignedMcNumber,
+                dot_number: assignedDotNumber
+            };
+
+            const { data, error } = await supabaseClient.from('shipments').insert([insertionPayload]).select();
 
             if (error) { alert("Database Error: " + error.message); return; }
 
