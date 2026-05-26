@@ -525,7 +525,7 @@
             }
         }
 
-		// 🔍 AUDIT REVIEW DISPLAY PANEL (MODIFIED TO BE BLANK AND EDITABLE BY OPERATOR)
+		// 🔍 AUDIT REVIEW DISPLAY PANEL (DYNAMIC PRE-FILL + FULLY EDITABLE BY OPERATOR)
         async function openReviewModal(loadNum) {
             activeReviewLoad = loadNum;
             const { data, error } = await supabaseClient.from('shipments').select('*').eq('load_number', loadNum).single();
@@ -546,14 +546,12 @@
                 </div>
             `;
 
-            // 🟢 TRANSFORM STATIC SPANS INTO BLANK EDITABLE INPUT FIELDS
-            // Instead of populating carrier text, they are initialized as empty string inputs
+            // GET REFERENCE TO WRAPPER CONTAINER
             const detailsWrapper = document.getElementById('reviewSecureLinkWrapper').parentElement;
             
             // Locate or dynamically create the editable inputs card wrapper area
             let inputContainer = document.getElementById('operatorEditableFieldsCard');
             if (!inputContainer) {
-                // Creates a fresh card container block if it doesn't exist yet
                 inputContainer = document.createElement('div');
                 inputContainer.id = "operatorEditableFieldsCard";
                 inputContainer.className = "bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 text-xs";
@@ -561,42 +559,52 @@
                 detailsWrapper.insertBefore(inputContainer, document.getElementById('imageReviewGrid').parentElement);
             }
 
-            // Generate clean blank layout fields ready for operator inputs
+            // 🟢 CONDITIONAL LOGIC: If form has not been submitted or values are 'TBD', start completely blank. 
+            // Otherwise, pre-fill with carrier values. Everything remains fully editable.
+            const driverVal = (data.driver_name === 'TBD' || !data.driver_form_submitted) ? "" : (data.driver_name || "");
+            const licVal    = (!data.driver_form_submitted) ? "" : (data.driver_license || "");
+            const phoneVal  = (!data.driver_form_submitted) ? "" : (data.driver_phone || "");
+            const truckVal  = (!data.driver_form_submitted) ? "" : (data.truck_number || "");
+            const trailVal  = (!data.driver_form_submitted) ? "" : (data.trailer_number || "");
+            const mcVal     = (!data.driver_form_submitted) ? "" : (data.mc_number || "");
+            const dotVal    = (!data.driver_form_submitted) ? "" : (data.dot_number || "");
+
+            // Generate clean layout fields with dynamic fallback strings
             inputContainer.innerHTML = `
-                <div class="font-bold text-indigo-400 uppercase tracking-wider text-[10px] mb-1">✍️ Operator Override Manual Data Entry</div>
+                <div class="font-bold text-indigo-400 uppercase tracking-wider text-[10px] mb-1">✍️ Operator Verification & Manual Data Entry</div>
                 <div class="grid grid-cols-2 gap-2">
                     <div>
                         <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Driver Name</label>
-                        <input type="text" id="revDriverInput" value="" placeholder="Enter Verified Name" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white focus:border-indigo-500 outline-none">
+                        <input type="text" id="revDriverInput" value="${driverVal}" placeholder="Enter Verified Name" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white focus:border-indigo-500 outline-none">
                     </div>
                     <div>
                         <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">License ID (CDL)</label>
-                        <input type="text" id="revLicInput" value="" placeholder="Enter CDL Alphanumeric" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-mono focus:border-indigo-500 outline-none">
+                        <input type="text" id="revLicInput" value="${licVal}" placeholder="Enter CDL Alphanumeric" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-mono focus:border-indigo-500 outline-none">
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                     <div>
                         <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Phone Line</label>
-                        <input type="tel" id="revPhoneInput" value="" placeholder="Enter Driver Phone" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white focus:border-indigo-500 outline-none">
+                        <input type="tel" id="revPhoneInput" value="${phoneVal}" placeholder="Enter Driver Phone" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white focus:border-indigo-500 outline-none">
                     </div>
                     <div>
                         <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Tractor / Truck ID</label>
-                        <input type="text" id="revTruckInput" value="" placeholder="Enter Truck Unit ID" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-mono focus:border-indigo-500 outline-none">
+                        <input type="text" id="revTruckInput" value="${truckVal}" placeholder="Enter Truck Unit ID" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-mono focus:border-indigo-500 outline-none">
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                     <div>
                         <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Trailer Equipment ID</label>
-                        <input type="text" id="revTrailerInput" value="" placeholder="Enter Trailer ID" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-mono focus:border-indigo-500 outline-none">
+                        <input type="text" id="revTrailerInput" value="${trailVal}" placeholder="Enter Trailer ID" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-mono focus:border-indigo-500 outline-none">
                     </div>
                     <div class="grid grid-cols-2 gap-1">
                         <div>
                             <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">MC Number</label>
-                            <input type="text" id="revMCInput" value="" placeholder="MC #" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-mono focus:border-indigo-500 outline-none">
+                            <input type="text" id="revMCInput" value="${mcVal}" placeholder="MC #" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-mono focus:border-indigo-500 outline-none">
                         </div>
                         <div>
                             <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">DOT Registration</label>
-                            <input type="text" id="revDOTInput" value="" placeholder="DOT #" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-mono focus:border-indigo-500 outline-none">
+                            <input type="text" id="revDOTInput" value="${dotVal}" placeholder="DOT #" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-mono focus:border-indigo-500 outline-none">
                         </div>
                     </div>
                 </div>
@@ -607,7 +615,7 @@
                 </div>
             `;
 
-            // Hide the old legacy non-editable template block from view entirely if it remains present
+            // Hide the old legacy non-editable text block from view entirely if present
             const legacyBlock = detailsWrapper.querySelector('.bg-slate-950.p-3.rounded-lg.border.border-slate-800.space-y-2.font-mono.text-slate-300');
             if(legacyBlock) legacyBlock.style.display = 'none';
 
@@ -649,7 +657,7 @@
             document.getElementById('reviewModal').classList.remove('hidden');
         }
 
-        // 💾 NEW OPERATION PIPELINE: PERSIST MANUALLY ENTERED OVERRIDES BACK TO POSTGRES TABLE
+        // 💾 PERSIST MANUALLY ENTERED OVERRIDES BACK TO THE POSTGRES TABLE
         async function saveOperatorManualOverrides() {
             if (!activeReviewLoad) return;
 
