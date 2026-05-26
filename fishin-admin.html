@@ -525,21 +525,13 @@
             }
         }
 
-        // AUDIT REVIEW DISPLAY PANEL
+		// 🔍 AUDIT REVIEW DISPLAY PANEL (MODIFIED TO BE BLANK AND EDITABLE BY OPERATOR)
         async function openReviewModal(loadNum) {
             activeReviewLoad = loadNum;
             const { data, error } = await supabaseClient.from('shipments').select('*').eq('load_number', loadNum).single();
             if (error || !data) return;
-            
-            document.getElementById('revDriver').innerText = data.driver_name || 'TBD';
-            document.getElementById('revLic').innerText = data.driver_license || 'TBD';
-            document.getElementById('revPhone').innerText = data.driver_phone || 'TBD';
-            document.getElementById('revTruck').innerText = data.truck_number || 'TBD';
-            document.getElementById('revTrailer').innerText = data.trailer_number || 'TBD';
-            document.getElementById('revMC').innerText = data.mc_number || 'TBD';
-            document.getElementById('revDOT').innerText = data.dot_number || 'TBD';
 
-            // CALCULATE AND ROUTE LIVE PATH TOKEN STRINGS INTO MODAL CONTAINER
+            // DYNAMICALLY GENERATE THE SECURE LINK COMPONENT FOR THE MODAL
             const activeToken = data.secure_token || data.id;
             const absoluteLinkPath = `${window.location.origin}/carrier-portal.html?token=${activeToken}`;
             
@@ -554,6 +546,72 @@
                 </div>
             `;
 
+            // 🟢 TRANSFORM STATIC SPANS INTO BLANK EDITABLE INPUT FIELDS
+            // Instead of populating carrier text, they are initialized as empty string inputs
+            const detailsWrapper = document.getElementById('reviewSecureLinkWrapper').parentElement;
+            
+            // Locate or dynamically create the editable inputs card wrapper area
+            let inputContainer = document.getElementById('operatorEditableFieldsCard');
+            if (!inputContainer) {
+                // Creates a fresh card container block if it doesn't exist yet
+                inputContainer = document.createElement('div');
+                inputContainer.id = "operatorEditableFieldsCard";
+                inputContainer.className = "bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 text-xs";
+                // Injects it precisely between the Link Wrapper and the Photo Matrix area
+                detailsWrapper.insertBefore(inputContainer, document.getElementById('imageReviewGrid').parentElement);
+            }
+
+            // Generate clean blank layout fields ready for operator inputs
+            inputContainer.innerHTML = `
+                <div class="font-bold text-indigo-400 uppercase tracking-wider text-[10px] mb-1">✍️ Operator Override Manual Data Entry</div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Driver Name</label>
+                        <input type="text" id="revDriverInput" value="" placeholder="Enter Verified Name" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white focus:border-indigo-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">License ID (CDL)</label>
+                        <input type="text" id="revLicInput" value="" placeholder="Enter CDL Alphanumeric" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-mono focus:border-indigo-500 outline-none">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Phone Line</label>
+                        <input type="tel" id="revPhoneInput" value="" placeholder="Enter Driver Phone" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white focus:border-indigo-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Tractor / Truck ID</label>
+                        <input type="text" id="revTruckInput" value="" placeholder="Enter Truck Unit ID" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-mono focus:border-indigo-500 outline-none">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Trailer Equipment ID</label>
+                        <input type="text" id="revTrailerInput" value="" placeholder="Enter Trailer ID" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-mono focus:border-indigo-500 outline-none">
+                    </div>
+                    <div class="grid grid-cols-2 gap-1">
+                        <div>
+                            <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">MC Number</label>
+                            <input type="text" id="revMCInput" value="" placeholder="MC #" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-mono focus:border-indigo-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">DOT Registration</label>
+                            <input type="text" id="revDOTInput" value="" placeholder="DOT #" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-mono focus:border-indigo-500 outline-none">
+                        </div>
+                    </div>
+                </div>
+                <div class="pt-1 flex justify-end">
+                    <button onclick="saveOperatorManualOverrides()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] rounded-lg shadow transition cursor-pointer">
+                        💾 Save Operator Overrides
+                    </button>
+                </div>
+            `;
+
+            // Hide the old legacy non-editable template block from view entirely if it remains present
+            const legacyBlock = detailsWrapper.querySelector('.bg-slate-950.p-3.rounded-lg.border.border-slate-800.space-y-2.font-mono.text-slate-300');
+            if(legacyBlock) legacyBlock.style.display = 'none';
+
+            // RENDER ATTACHMENTS VAULT
             const imgGrid = document.getElementById('imageReviewGrid');
             imgGrid.innerHTML = ""; 
 
@@ -566,7 +624,6 @@
             } else {
                 imgGrid.className = "grid grid-cols-2 gap-2";
                 
-                // Read link values out of your Supabase storage columns 
                 const attachments = [
                     { label: "1) Truck Side View", url: data.truck_photo_url },
                     { label: "2) Tractor VIN Stamp", url: data.vin_photo_url },
@@ -590,6 +647,35 @@
                 `).join('');
             }
             document.getElementById('reviewModal').classList.remove('hidden');
+        }
+
+        // 💾 NEW OPERATION PIPELINE: PERSIST MANUALLY ENTERED OVERRIDES BACK TO POSTGRES TABLE
+        async function saveOperatorManualOverrides() {
+            if (!activeReviewLoad) return;
+
+            const payload = {
+                driver_name: document.getElementById('revDriverInput').value.trim() || null,
+                driver_license: document.getElementById('revLicInput').value.trim() || null,
+                driver_phone: document.getElementById('revPhoneInput').value.trim() || null,
+                truck_number: document.getElementById('revTruckInput').value.trim() || null,
+                trailer_number: document.getElementById('revTrailerInput').value.trim() || null,
+                mc_number: document.getElementById('revMCInput').value.trim() || null,
+                dot_number: document.getElementById('revDOTInput').value.trim() || null,
+                updated_by: activeUser,
+                last_updated_time: new Date().toISOString()
+            };
+
+            try {
+                const { error } = await supabaseClient.from('shipments')
+                    .update(payload)
+                    .eq('load_number', activeReviewLoad);
+
+                if (error) throw error;
+                alert("Success!\n\nManual verification metrics saved permanently to the load record spreadsheet log.");
+                fetchMasterData();
+            } catch (err) {
+                alert("Override Save Interrupted: " + err.message);
+            }
         }
 
 		// 🔄 REGENERATE LINK AND ARMED PORTAL RESET
