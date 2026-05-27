@@ -67,7 +67,7 @@
         </div>
 
         <div class="text-xs text-slate-400 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 self-start sm:self-auto">
-            ⚠️ <span class="font-medium text-slate-300">Rule:</span> Do not load cargo unless <strong class="text-emerald-400">DRIVER IS VERIFIED</strong> and status reads <strong class"text-emerald-400">APPROVED TO LOAD</strong>.
+            ⚠️ <span class="font-medium text-slate-300">Rule:</span> Do not load cargo unless <strong class="text-emerald-400">DRIVER IS VERIFIED</strong> and status reads <strong class="text-emerald-400">APPROVED TO LOAD</strong>.
         </div>
     </section>
 
@@ -265,45 +265,30 @@
 
             filteredPool.forEach(row => {
                 const stops = row.stops_json || [];
-                const isMultiStop = stops.length > 1;
-                const isExpanded = expandedLoads.has(row.load_number);
-
+                
+                // 🟢 REMOVED: Collapsible checks completely bypassed so rows are expanded at all times
                 let statusBg = row.release_status.startsWith('APPROVED') ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800/60' :
                                row.release_status.startsWith('HOLD') ? 'bg-rose-950/80 text-rose-400 border-rose-800/60 animate-pulse' :
                                'bg-amber-950/80 text-amber-400 border-amber-800/60';
 
-                // Calculate consistent 3-letter uppercase weekday tag based on date
                 const rowDateObj = new Date(row.pickup_date + "T00:00:00");
                 const weekdayString = rowDateObj.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
 
-                let soDisplay = "", destDisplay = "";
-                if (isMultiStop && !isExpanded) {
-                    soDisplay = `<span class="text-amber-500 font-bold bg-amber-950/30 px-1.5 py-0.5 rounded text-[10px] uppercase border border-amber-900/40">📦 Multi-Stop (${stops.length})</span>`;
-                    destDisplay = `<span class="text-slate-400 italic text-[11px]">Click Row to Expand Drops</span>`;
-                } else {
-                    soDisplay = stops.map(s => `<div class="font-mono text-slate-300 py-0.5">${s.so_number || '---'}</div>`).join('');
-                    destDisplay = stops.map(s => `<div class="text-slate-300 font-medium py-0.5 truncate max-w-[350px]" title="${s.destination}">${s.destination || '---'}</div>`).join('');
-                }
+                // 🟢 ALWAYS EXPANDED: Multi-stops render nested rows automatically
+                let soDisplay = stops.map(s => `<div class="font-mono text-slate-300 py-0.5">${s.so_number || '---'}</div>`).join('');
+                let destDisplay = stops.map(s => `<div class="text-slate-300 font-medium py-0.5 truncate max-w-[350px]" title="${s.destination}">${s.destination || '---'}</div>`).join('');
 
                 const tr = document.createElement('tr');
-                tr.className = `hover:bg-slate-800/40 transition align-middle ${isMultiStop ? 'cursor-pointer' : ''}`;
+                tr.className = `hover:bg-slate-800/40 transition align-middle`; // 🟢 REMOVED: cursor-pointer from entire row
                 
-                tr.onclick = (e) => {
-                    if (e.target.classList.contains('maint-modal-trigger') || e.target.closest('button')) return;
-                    if (isMultiStop) {
-                        if (expandedLoads.has(row.load_number)) expandedLoads.delete(row.load_number);
-                        else expandedLoads.add(row.load_number);
-                        renderTerminalMatrix();
-                    }
-                };
-
+                // 🟢 ADDED: cursor-pointer directly on the Load # cell to guarantee the finger pointer cursor
                 tr.innerHTML = `
                     <td class="py-4 px-4 font-mono font-bold text-slate-300 text-xs flex items-center gap-1.5 h-[53px]">
                         <span>${row.pickup_time}</span>
                         <span class="text-[10px] font-black tracking-wider px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-indigo-400">${weekdayString}</span>
                     </td>
-                    <td class="py-4 px-4 font-mono font-black text-indigo-400 text-xs hover:underline maint-modal-trigger" onclick="openDrilldown('${row.load_number}')">
-                        ${isMultiStop ? (isExpanded ? '▼ ' : '▶ ') : ''}${row.load_number}
+                    <td class="py-4 px-4 font-mono font-black text-indigo-400 text-xs hover:underline maint-modal-trigger cursor-pointer" onclick="openDrilldown('${row.load_number}')">
+                        ${row.load_number}
                     </td>
                     <td class="py-4 px-4 font-mono text-slate-200 font-bold text-xs">${row.conf_number}</td>
                     <td class="py-4 px-4">${soDisplay}</td>
