@@ -67,7 +67,7 @@
         </div>
 
         <div class="text-xs text-slate-400 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 self-start sm:self-auto">
-            ⚠️ <span class="font-medium text-slate-300">Rule:</span> Do not load cargo unless status reads <strong class="text-emerald-400">APPROVED TO LOAD</strong>.
+            ⚠️ <span class="font-medium text-slate-300">Rule:</span> Do not load cargo unless <strong class="text-emerald-400">DRIVER IS VERIFIED</strong> and status reads <strong class"text-emerald-400">APPROVED TO LOAD</strong>.
         </div>
     </section>
 
@@ -218,22 +218,19 @@
             const warehouseTodayStr = getWarehouseCurrentDateString(tz);
             
             const todayDateObj = new Date(warehouseTodayStr + "T00:00:00");
-            const warehouseDayOfWeek = todayDateObj.getDay(); // 5 = Friday
+            const warehouseDayOfWeek = todayDateObj.getDay(); 
 
-            // Generate flexible upcoming multi-day comparison constraints
             let matchDatesArray = [];
             if (activeDayFilter === 'today') {
                 matchDatesArray.push(warehouseTodayStr);
             } else if (activeDayFilter === 'tomorrow') {
                 if (warehouseDayOfWeek === 5) {
-                    // It is Friday: Tomorrow expands to include Sat, Sun, and Mon rolling manifests
                     for (let i = 1; i <= 3; i++) {
                         const tempObj = new Date(warehouseTodayStr + "T00:00:00");
                         tempObj.setDate(tempObj.getDate() + i);
                         matchDatesArray.push(tempObj.toISOString().split('T')[0]);
                     }
                 } else {
-                    // Standard Mid-Week operation: Tomorrow stays strictly next calendar day
                     todayDateObj.setDate(todayDateObj.getDate() + 1);
                     matchDatesArray.push(todayDateObj.toISOString().split('T')[0]);
                 }
@@ -245,10 +242,20 @@
                 filteredPool = filteredPool.filter(row => row.release_status.includes('HOLD') || row.release_status.includes('AWAITING'));
             }
 
-            filteredPool.sort((a,b) => {
+            // 🟢 FIXED: Mathematical Time Normalization Sort (Earliest First)
+            filteredPool.sort((a, b) => {
                 const dateCompare = a.pickup_date.localeCompare(b.pickup_date);
                 if (dateCompare !== 0) return dateCompare;
-                return a.pickup_time.localeCompare(b.pickup_time);
+
+                function parseTimeToMinutes(timeStr) {
+                    if (!timeStr) return 0;
+                    const parts = timeStr.trim().split(':');
+                    const hours = parseInt(parts[0], 10) || 0;
+                    const minutes = parseInt(parts[1], 10) || 0;
+                    return (hours * 60) + minutes;
+                }
+
+                return parseTimeToMinutes(a.pickup_time) - parseTimeToMinutes(b.pickup_time);
             });
 
             if (filteredPool.length === 0) {
