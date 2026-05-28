@@ -45,14 +45,14 @@
                 <thead>
                     <tr class="bg-slate-950 text-slate-400 text-[10px] font-bold uppercase tracking-wider border-b border-slate-800">
                         <th class="py-3.5 px-4">Warehouse</th>
-                        <th class="py-3.5 px-4">Sched Date/Time</th>
-                        <th class="py-3.5 px-4">Load # (Unique ID)</th>
+                        <th class="py-3.5 px-4">Sched Time</th>
+                        <th class="py-3.5 px-4">Load #</th>
                         <th class="py-3.5 px-4">Confirmation #</th>
                         <th class="py-3.5 px-4">SO #</th>
                         <th class="py-3.5 px-4">Destination</th>
-                        <th class="py-3.5 px-4">Carrier Assigned</th>
+                        <th class="py-3.5 px-4">Carrier</th>
                         <th class="py-3.5 px-4">Carrier Entry Data</th>
-                        <th class="py-3.5 px-4 w-52">Operational Release Status</th>
+                        <th class="py-3.5 px-4 w-52">Release Status</th>
                         <th class="py-3.5 px-4">Audit Trace</th>
                     </tr>
                 </thead>
@@ -238,7 +238,6 @@
         let activeUser = "";
         let currentWhFilter = "All";
         let activeReviewLoad = "";
-        let expandedLoads = new Set(); 
 
 		// 🛡️ SECURE SUBAPASE AUTHENTICATION LOGIN ENGINE
         async function handleLogin() {
@@ -274,7 +273,9 @@
                     
                     // Fire up your live dashboard extraction streams
                     fetchMasterData();
-                    supabaseClient.channel('room1').on('postgres_changes', {event:'*', schema:'public', table:'shipments'}, fetchMasterData).subscribe();
+                    // 🟢 FIXED: Generates a unique subscription channel name to prevent connection room overlap conflicts
+					const customChannelId = 'login_room_' + Date.now();
+					supabaseClient.channel(customChannelId).on('postgres_changes', {event:'*', schema:'public', table:'shipments'}, fetchMasterData).subscribe();
                 }
             } catch (err) {
                 alert("Authentication Process Interrupted: " + err.message);
@@ -332,12 +333,41 @@
                 return parseTimeToMinutes(a.pickup_time) - parseTimeToMinutes(b.pickup_time);
             });
 
-            // STEP 3: Render the perfectly sorted data matrix
+			// 🟢 STEP 3: Render the data matrix grouped by Date Header Rows
+            let lastRenderedDate = ""; // Tracks the date boundary to insert headers dynamically
+
             data.forEach(row => {
                 const stops = row.stops_json || [];
-                const isMultiStop = stops.length > 1;
-                const isExpanded = expandedLoads.has(row.load_number);
 
+// A. Check if this load belongs to a new day. Inject a lightweight minimalist divider line.
+                if (row.pickup_date !== lastRenderedDate) {
+                    lastRenderedDate = row.pickup_date;
+                    
+                    // Format the date into a clean, concise string (e.g., "WEDNESDAY, MAY 27, 2026")
+                    const dateObj = new Date(row.pickup_date + "T00:00:00");
+                    const formattedDateStr = dateObj.toLocaleDateString('en-US', { 
+                        weekday: 'short', 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: 'numeric'
+                    }).toUpperCase();
+
+					const headerTr = document.createElement('tr');
+                    // 🎨 Tightened Layout: Removed default row heights, set to a low-profile dark zinc hue
+                    headerTr.className = "bg-zinc-900/80 border-y border-zinc-800/30 select-none h-auto";
+                    headerTr.innerHTML = `
+                        <td colspan="10" class="py-1.5 px-4 text-left align-middle">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[11px] font-bold tracking-[0.12em] text-zinc-400 font-sans uppercase">
+                                    ${formattedDateStr}
+                                </span>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(headerTr);
+                }
+
+                // B. Handle the status badge colors
                 let statusBadgeColor = "text-slate-400 bg-slate-950 border-slate-800";
                 if (row.release_status === 'ACTION REQUIRED') {
                     statusBadgeColor = "text-amber-400 bg-amber-950/40 border-amber-900/60 animate-pulse";
@@ -347,32 +377,21 @@
                     statusBadgeColor = "text-rose-400 bg-rose-950/60 border-rose-900/60";
                 }
 
-                let soCell = "", destCell = "";
-                if (isMultiStop && !isExpanded) {
-                    soCell = `<span class="text-amber-500 font-bold bg-amber-950/20 px-1.5 py-0.5 rounded text-[10px] uppercase border border-amber-900/30">Multi-Stop (${stops.length})</span>`;
-                    destCell = `<span class="text-slate-400 italic">Row Collapsed</span>`;
-                } else {
-                    soCell = stops.map(s => `<div class="font-mono text-slate-300 py-0.5">${s.so_number || '---'}</div>`).join('');
-                    destCell = stops.map(s => `<div class="text-slate-300 font-medium py-0.5">${s.destination || '---'}</div>`).join('');
-                }
+                // Always expanded stops mapping elements
+                let soCell = stops.map(s => `<div class="font-mono text-slate-300 py-0.5">${s.so_number || '---'}</div>`).join('');
+                let destCell = stops.map(s => `<div class="text-slate-300 font-medium py-0.5">${s.destination || '---'}</div>`).join('');
 
                 const tr = document.createElement('tr');
-                tr.className = `hover:bg-slate-800/30 border-b border-slate-800/40 align-middle ${isMultiStop ? 'cursor-pointer' : ''}`;
+                tr.className = `hover:bg-slate-800/30 border-b border-slate-800/40 align-middle`;
                 
-                tr.onclick = (e) => {
-                    if (e.target.classList.contains('load-click-trigger') || e.target.closest('.action-btn-trigger')) return;
-                    if (isMultiStop) {
-                        if (expandedLoads.has(row.load_number)) expandedLoads.delete(row.load_number);
-                        else expandedLoads.add(row.load_number);
-                        fetchMasterData();
-                    }
-                };
-
+                // 🟢 UPDATED: The Sched Date/Time column cell now strictly shows the prominent time string
                 tr.innerHTML = `
                     <td class="p-3 font-semibold text-slate-300">${row.warehouse_name}</td>
-                    <td class="p-3 font-mono font-bold text-slate-400">${row.pickup_date}<br><span class="text-indigo-400 text-[10px]">${row.pickup_time}</span></td>
-                    <td class="p-3 font-mono text-indigo-400 font-black hover:underline load-click-trigger" onclick="openMaintenanceModal('${row.load_number}')">
-                        ${isMultiStop ? (isExpanded ? '▼ ' : '▶ ') : ''}${row.load_number}
+                    <td class="p-3 font-mono font-black text-slate-300 text-sm tracking-wide">
+                        ${row.pickup_time}
+                    </td>
+                    <td class="p-3 font-mono text-indigo-400 font-black hover:underline load-click-trigger cursor-pointer" onclick="openMaintenanceModal('${row.load_number}')">
+                        ${row.load_number}
                     </td>
                     <td class="p-3 font-mono font-bold text-slate-300">${row.conf_number}</td>
                     <td class="p-3">${soCell}</td>
@@ -616,8 +635,10 @@
             const phoneVal  = (!data.driver_form_submitted) ? "" : (data.driver_phone || "");
             const truckVal  = (!data.driver_form_submitted) ? "" : (data.truck_number || "");
             const trailVal  = (!data.driver_form_submitted) ? "" : (data.trailer_number || "");
-            const mcVal     = (!data.driver_form_submitted) ? "" : (data.mc_number || "");
-            const dotVal    = (!data.driver_form_submitted) ? "" : (data.dot_number || "");
+            
+			// These two rows will now look directly into the row data column array map first
+			const mcVal     = data.mc_number || ""; 
+			const dotVal    = data.dot_number || "";
 
             // Generate clean layout fields with dynamic fallback strings
             inputContainer.innerHTML = `
@@ -797,6 +818,27 @@
             });
             fetchMasterData();
         }
+
+        // 🟢 PLACE IT HERE: Right below your last function and right above the closing script tag
+        window.onload = async function() {
+            // 1. Instantly check if Supabase remembers this operator's secure session token
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            
+            if (session && session.user && session.user.email.endsWith("@fishinco.com")) {
+                // Persistent session verified! Securely auto-bypass the login overlay screen
+                activeUser = session.user.email;
+                document.getElementById('currentUserLabel').innerText = activeUser;
+                document.getElementById('loginOverlay').classList.add('hidden');
+                
+                // Fire up your database grid array views and subscribe to real-time streams
+                fetchMasterData();
+                const refreshChannelId = 'refresh_room_' + Date.now();
+                supabaseClient.channel(refreshChannelId).on('postgres_changes', {event:'*', schema:'public', table:'shipments'}, fetchMasterData).subscribe();
+            } else {
+                // No token active or domain match failed: clear state values and hold login wall
+                document.getElementById('loginOverlay').classList.remove('hidden');
+            }
+        };
     </script>
 </body>
 </html>
