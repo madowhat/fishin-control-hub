@@ -32,11 +32,16 @@
         </div>
     </header>
 
-    <section class="bg-slate-900/30 border-b border-slate-800/50 px-6 py-3 flex gap-2">
-        <button onclick="filterWarehouse('All')" id="wh-All" class="px-3 py-1 bg-slate-800 text-white border border-slate-700 text-xs font-semibold rounded-md cursor-pointer">All Warehouses</button>
-        <button onclick="filterWarehouse('Baltimore')" id="wh-Baltimore" class="px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white">Baltimore</button>
-        <button onclick="filterWarehouse('Mobile')" id="wh-Mobile" class="px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white">Mobile</button>
-        <button onclick="filterWarehouse('Burien')" id="wh-Burien" class="px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white">Burien</button>
+	<section class="bg-slate-900/30 border-b border-slate-800/50 px-6 py-3 flex items-center justify-between">
+        <div class="flex gap-2" id="warehouseFilters">
+            <button onclick="filterWarehouse('All')" id="wh-All" class="px-3 py-1 bg-slate-800 text-white border border-slate-700 text-xs font-semibold rounded-md cursor-pointer transition">All Warehouses</button>
+            <button onclick="filterWarehouse('Baltimore')" id="wh-Baltimore" class="px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white transition">Baltimore</button>
+            <button onclick="filterWarehouse('Mobile')" id="wh-Mobile" class="px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white transition">Mobile</button>
+            <button onclick="filterWarehouse('Burien')" id="wh-Burien" class="px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white transition">Burien</button>
+        </div>
+        <div>
+            <button onclick="toggleArchive()" id="wh-Archive" class="px-3 py-1 bg-slate-950 text-indigo-400 border border-indigo-900/50 text-xs font-semibold rounded-md cursor-pointer hover:bg-indigo-950/30 transition">Recent Archive (14 Days)</button>
+        </div>
     </section>
 
     <main class="flex-1 p-6 overflow-x-auto">
@@ -238,6 +243,7 @@
         let activeUser = "";
         let currentWhFilter = "All";
         let activeReviewLoad = "";
+		let isArchiveView = false; 
 
 		// 🛡️ SECURE SUBAPASE AUTHENTICATION LOGIN ENGINE
         async function handleLogin() {
@@ -303,25 +309,46 @@
 
         // Master Data Extraction Queue
         async function fetchMasterData() {
-            // 🟢 STEP 1: Keep server-side grouping fast by date
-            let query = supabaseClient.from('shipments')
-                .select('*')
-                .order('pickup_date', { ascending: true });
+            // 1. Calculate Date Boundaries dynamically based on today
+            const today = new Date();
+            
+            // Cutoff: 1 day ago (Yesterday)
+            const cutoffObj = new Date(today);
+            cutoffObj.setDate(cutoffObj.getDate() - 1);
+            const cutoffDateStr = cutoffObj.toISOString().split('T')[0];
+
+            // Archive Limit: 15 days ago (Provides a strict 14-day window behind the cutoff)
+            const archiveLimitObj = new Date(today);
+            archiveLimitObj.setDate(archiveLimitObj.getDate() - 15);
+            const archiveLimitStr = archiveLimitObj.toISOString().split('T')[0];
+
+            let query = supabaseClient.from('shipments').select('*').order('pickup_date', { ascending: true });
+
+            // 2. Apply Logical Routing for Live vs. Archive modes
+            if (isArchiveView) {
+                // ARCHIVE QUEUE: Older than yesterday, up to 15 days in the past. Global view.
+                query = query.lt('pickup_date', cutoffDateStr).gte('pickup_date', archiveLimitStr);
+            } else {
+                // LIVE QUEUE: Yesterday, Today, and all Future loads.
+                query = query.gte('pickup_date', cutoffDateStr);
                 
-            if(currentWhFilter !== "All") query = query.eq('warehouse_name', currentWhFilter);
+                // Only apply warehouse filter if we are in the live queue
+                if (currentWhFilter !== "All") {
+                    query = query.eq('warehouse_name', currentWhFilter);
+                }
+            }
+
             const { data } = await query;
             const tbody = document.getElementById('adminTableBody');
             tbody.innerHTML = "";
 
             if (!data) return;
 
-            // 🟢 STEP 2: Mathematical Time Normalization Sort (Earliest First)
+            // 3. Mathematical Time Normalization Sort (Earliest First)
             data.sort((a, b) => {
-                // If pickup dates differ, let alphabetical date string order handle it
                 const dateCompare = a.pickup_date.localeCompare(b.pickup_date);
                 if (dateCompare !== 0) return dateCompare;
 
-                // Safe helper to convert any "H:MM" or "HH:MM" 24hr string into total minutes from midnight
                 function parseTimeToMinutes(timeStr) {
                     if (!timeStr) return 0;
                     const parts = timeStr.trim().split(':');
@@ -329,31 +356,28 @@
                     const minutes = parseInt(parts[1], 10) || 0;
                     return (hours * 60) + minutes;
                 }
-
                 return parseTimeToMinutes(a.pickup_time) - parseTimeToMinutes(b.pickup_time);
             });
 
-			// 🟢 STEP 3: Render the data matrix grouped by Date Header Rows
-            let lastRenderedDate = ""; // Tracks the date boundary to insert headers dynamically
+            // 4. Render the data matrix grouped by Date Header Rows
+            let lastRenderedDate = ""; 
 
             data.forEach(row => {
                 const stops = row.stops_json || [];
 
-// A. Check if this load belongs to a new day. Inject a lightweight minimalist divider line.
                 if (row.pickup_date !== lastRenderedDate) {
                     lastRenderedDate = row.pickup_date;
                     
-                    // Format the date into a clean, concise string (e.g., "WEDNESDAY, MAY 27, 2026")
                     const dateObj = new Date(row.pickup_date + "T00:00:00");
-                    const formattedDateStr = dateObj.toLocaleDateString('en-US', { 
-                        weekday: 'short', 
-                        month: 'short', 
-                        day: 'numeric',
-                        year: 'numeric'
+                    let formattedDateStr = dateObj.toLocaleDateString('en-US', { 
+                        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
                     }).toUpperCase();
 
-					const headerTr = document.createElement('tr');
-                    // 🎨 Tightened Layout: Removed default row heights, set to a low-profile dark zinc hue
+                    if (isArchiveView) {
+                        formattedDateStr += " — ARCHIVE RECORD";
+                    }
+
+                    const headerTr = document.createElement('tr');
                     headerTr.className = "bg-zinc-900/80 border-y border-zinc-800/30 select-none h-auto";
                     headerTr.innerHTML = `
                         <td colspan="10" class="py-1.5 px-4 text-left align-middle">
@@ -367,7 +391,6 @@
                     tbody.appendChild(headerTr);
                 }
 
-                // B. Handle the status badge colors
                 let statusBadgeColor = "text-slate-400 bg-slate-950 border-slate-800";
                 if (row.release_status === 'ACTION REQUIRED') {
                     statusBadgeColor = "text-amber-400 bg-amber-950/40 border-amber-900/60 animate-pulse";
@@ -377,22 +400,16 @@
                     statusBadgeColor = "text-rose-400 bg-rose-950/60 border-rose-900/60";
                 }
 
-                // Always expanded stops mapping elements
                 let soCell = stops.map(s => `<div class="font-mono text-slate-300 py-0.5">${s.so_number || '---'}</div>`).join('');
                 let destCell = stops.map(s => `<div class="text-slate-300 font-medium py-0.5">${s.destination || '---'}</div>`).join('');
 
                 const tr = document.createElement('tr');
-                tr.className = `hover:bg-slate-800/30 border-b border-slate-800/40 align-middle`;
+                tr.className = `hover:bg-slate-800/30 border-b border-slate-800/40 align-middle ${isArchiveView ? "opacity-75 grayscale-[20%]" : ""}`;
                 
-                // 🟢 UPDATED: The Sched Date/Time column cell now strictly shows the prominent time string
                 tr.innerHTML = `
                     <td class="p-3 font-semibold text-slate-300">${row.warehouse_name}</td>
-                    <td class="p-3 font-mono font-black text-slate-300 text-sm tracking-wide">
-                        ${row.pickup_time}
-                    </td>
-                    <td class="p-3 font-mono text-indigo-400 font-black hover:underline load-click-trigger cursor-pointer" onclick="openMaintenanceModal('${row.load_number}')">
-                        ${row.load_number}
-                    </td>
+                    <td class="p-3 font-mono font-black text-slate-300 text-sm tracking-wide">${row.pickup_time}</td>
+                    <td class="p-3 font-mono text-indigo-400 font-black hover:underline load-click-trigger cursor-pointer" onclick="openMaintenanceModal('${row.load_number}')">${row.load_number}</td>
                     <td class="p-3 font-mono font-bold text-slate-300">${row.conf_number}</td>
                     <td class="p-3">${soCell}</td>
                     <td class="p-3">${destCell}</td>
@@ -401,16 +418,13 @@
                         <button onclick="openReviewModal('${row.load_number}')" class="action-btn-trigger px-2 py-1 bg-slate-800 border border-slate-700 text-[10px] rounded hover:bg-slate-700 cursor-pointer transition">🔍 View Form</button>
                     </td>
                     <td class="p-3">
-                        <span class="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-md border ${statusBadgeColor}">
-                            ${row.release_status}
-                        </span>
+                        <span class="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-md border ${statusBadgeColor}">${row.release_status}</span>
                     </td>
                     <td class="p-3 font-mono text-[10px] text-slate-500">👤 ${row.updated_by || 'System'}</td>
                 `;
                 tbody.appendChild(tr);
             });
         }
-
         // RESET AND FLUSH FORM VALUES ON NEW ENTRY VISITS
         function openIngestion() { 
             document.getElementById('formLoad').value = "";
@@ -808,15 +822,49 @@
             fetchMasterData();
         }
 
+        // Handles normal Live Queue filtering (Acts as an escape hatch from Archive mode)
         function filterWarehouse(wh) {
+            isArchiveView = false; // Ensure archive view turns off
             currentWhFilter = wh;
+            
+            // Set clicked warehouse button to highlighted style, set others to dark unselected style
             ['All', 'Baltimore', 'Mobile', 'Burien'].forEach(w => {
                 const element = document.getElementById(`wh-${w}`);
                 if (element) {
-                    element.className = w === wh ? "px-3 py-1 bg-slate-800 text-white border border-slate-700 text-xs font-semibold rounded-md cursor-pointer" : "px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white";
+                    element.className = w === wh 
+                        ? "px-3 py-1 bg-slate-800 text-white border border-slate-700 text-xs font-semibold rounded-md cursor-pointer transition" 
+                        : "px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white transition";
                 }
             });
+
+            // Revert Archive button back to idle styling
+            document.getElementById('wh-Archive').className = "px-3 py-1 bg-slate-950 text-indigo-400 border border-indigo-900/50 text-xs font-semibold rounded-md cursor-pointer hover:bg-indigo-950/30 transition";
+            
             fetchMasterData();
+        }
+
+        // Controls the Recent Archive True Toggle flow
+        function toggleArchive() {
+            if (isArchiveView) {
+                // If it's already active, clicking it switches it OFF and returns to default "All Warehouses"
+                filterWarehouse('All');
+            } else {
+                // Turn Archive mode ON
+                isArchiveView = true;
+                
+                // Clear active highlighted styling from all location buttons (showing they are unselected)
+                ['All', 'Baltimore', 'Mobile', 'Burien'].forEach(w => {
+                    const element = document.getElementById(`wh-${w}`);
+                    if (element) {
+                        element.className = "px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white transition";
+                    }
+                });
+
+                // Light up the Archive tab button to indicate active historical view
+                document.getElementById('wh-Archive').className = "px-3 py-1 bg-indigo-600 text-white border border-indigo-500 text-xs font-bold rounded-md cursor-pointer shadow-md shadow-indigo-900/20 transition";
+                
+                fetchMasterData();
+            }
         }
 
         // 🟢 PLACE IT HERE: Right below your last function and right above the closing script tag
