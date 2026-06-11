@@ -50,6 +50,10 @@
                         <input type="text" id="trailerNum" placeholder="Trailer ID" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white font-mono">
                     </div>
                 </div>
+				<div id="brokerCarrierNameWrapper" class="hidden">
+					<label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Carrier Name (Dispatch Broker Agency)</label>
+					<input type="text" id="brokerCarrierName" placeholder="Enter Carrier Operating Name" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white">
+				</div>
                 <div class="grid grid-cols-2 gap-2">
                     <div>
                         <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Carrier MC Number</label>
@@ -130,14 +134,30 @@
                 return;
             }
 
-            // 🟢 PRE-FILL EXISTING RECORDS FOR CORRECTIONS
-            document.getElementById('driverName').value = data.driver_name || "";
-            document.getElementById('driverLic').value = data.driver_license || "";
-            document.getElementById('driverPhone').value = data.driver_phone || "";
-            document.getElementById('truckNum').value = data.truck_number || "";
-            document.getElementById('trailerNum').value = data.trailer_number || "";
-            document.getElementById('mcNum').value = data.mc_number || "";
-            document.getElementById('dotNum').value = data.dot_number || "";
+            // 🟢 EDITED: PRE-FILL EXISTING RECORDS FOR CORRECTIONS & STRIP LEGACY "TBD" VALUE BLOCKS
+			document.getElementById('driverName').value = (data.driver_name === 'TBD') ? "" : (data.driver_name || "");
+			document.getElementById('driverLic').value = (data.driver_license === 'TBD') ? "" : (data.driver_license || "");
+			document.getElementById('driverPhone').value = (data.driver_phone === 'TBD') ? "" : (data.driver_phone || "");
+			document.getElementById('truckNum').value = (data.truck_number === 'TBD') ? "" : (data.truck_number || "");
+			document.getElementById('trailerNum').value = (data.trailer_number === 'TBD') ? "" : (data.trailer_number || "");
+			document.getElementById('mcNum').value = (data.mc_number === 'TBD') ? "" : (data.mc_number || "");
+			document.getElementById('dotNum').value = (data.dot_number === 'TBD') ? "" : (data.dot_number || "");
+
+			const carrierInput = document.getElementById('brokerCarrierName');
+			const carrierWrapper = document.getElementById('brokerCarrierNameWrapper');
+
+			if (data.carrier_type === 'Asset-Based') {
+				carrierWrapper.classList.add('hidden');
+				carrierInput.removeAttribute('required');
+				carrierInput.value = "";
+			} else {
+				carrierWrapper.classList.remove('hidden');
+				carrierInput.setAttribute('required', 'required');
+				carrierInput.value = (data.broker_carrier_name === 'TBD') ? "" : (data.broker_carrier_name || "");
+			}
+			
+			// Bind your new field to database column allocation
+			document.getElementById('brokerCarrierName').value = (data.broker_carrier_name === 'TBD') ? "" : (data.broker_carrier_name || "");
 
             // Save old URLs to global state cache
             cachedTruckUrl = data.truck_photo_url;
@@ -196,6 +216,7 @@
                 const anyPhotos = (truckUrl || vinUrl || cdlUrl || driverUrl);
 
                 const payload = {
+					broker_carrier_name: document.getElementById('brokerCarrierName').value.trim(),
                     driver_name: document.getElementById('driverName').value.trim(),
                     driver_license: document.getElementById('driverLic').value.trim(),
                     driver_phone: document.getElementById('driverPhone').value.trim(),

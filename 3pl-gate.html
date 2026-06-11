@@ -126,7 +126,8 @@
                 <button onclick="closeDriverModal()" class="text-slate-400 hover:text-white text-sm font-bold bg-slate-800 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer">&times;</button>
             </div>
             <div class="space-y-2.5 bg-slate-950/60 p-4 rounded-xl border border-slate-800 text-xs">
-                <div class="flex justify-between items-center border-b border-slate-900/60 pb-2"><span class="text-slate-400 font-medium">Driver’s Name:</span><span id="driverViewName" class="text-white font-semibold text-sm">---</span></div>
+                <div id="driverViewBrokerCarrierRow" class="flex justify-between items-center border-b border-slate-900/60 pb-2 hidden"><span class="text-slate-400 font-medium">Broker Dispatched Carrier:</span><span id="driverViewBrokerCarrier" class="text-indigo-400 font-bold">---</span></div>
+				<div class="flex justify-between items-center border-b border-slate-900/60 pb-2"><span class="text-slate-400 font-medium">Driver’s Name:</span><span id="driverViewName" class="text-white font-semibold text-sm">---</span></div>
                 <div class="flex justify-between items-center border-b border-slate-900/60 pb-2"><span class="text-slate-400 font-medium">Driver’s License Number:</span><span id="driverViewLicense" class="text-slate-200 font-mono font-medium">---</span></div>
                 <div class="flex justify-between items-center border-b border-slate-900/60 pb-2"><span class="text-slate-400 font-medium">Driver’s Phone Number:</span><span id="driverViewPhone" class="text-slate-200 font-medium">---</span></div>
                 <div class="flex justify-between items-center border-b border-slate-900/60 pb-2"><span class="text-slate-400 font-medium">Truck Number:</span><span id="driverViewTruck" class="text-slate-200 font-mono font-medium">---</span></div>
@@ -340,7 +341,16 @@
             if (!load) return;
 
             document.getElementById('driverModalLoad').innerText = `Reference Load: ${load.load_number}`;
-            document.getElementById('driverViewName').innerText = load.driver_name || 'TBD';
+            // CONDITIONAL LOGIC FOR THE 3PL DOCK CLERK VIEWER
+			const brokerCarrierRow = document.getElementById('driverViewBrokerCarrierRow');
+			if (load.carrier_type === 'Asset-Based') {
+				brokerCarrierRow.classList.add('hidden');
+				document.getElementById('driverViewBrokerCarrier').innerText = "";
+			} else {
+				brokerCarrierRow.classList.remove('hidden');
+				document.getElementById('driverViewBrokerCarrier').innerText = load.broker_carrier_name || 'TBD';
+			}
+			document.getElementById('driverViewName').innerText = load.driver_name || 'TBD';
             document.getElementById('driverViewLicense').innerText = load.driver_license || 'TBD';
             document.getElementById('driverViewPhone').innerText = load.driver_phone || 'TBD';
             document.getElementById('driverViewTruck').innerText = load.truck_number || 'TBD';
