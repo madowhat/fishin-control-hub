@@ -642,15 +642,13 @@
                 detailsWrapper.insertBefore(inputContainer, document.getElementById('imageReviewGrid').parentElement);
             }
 
-            // 🟢 CONDITIONAL LOGIC: If form has not been submitted or values are 'TBD', start completely blank. 
-            // Otherwise, pre-fill with carrier values. Everything remains fully editable.
-            const driverVal = (data.driver_name === 'TBD' || !data.driver_form_submitted) ? "" : (data.driver_name || "");
-            const licVal    = (!data.driver_form_submitted) ? "" : (data.driver_license || "");
-            const phoneVal  = (!data.driver_form_submitted) ? "" : (data.driver_phone || "");
-            const truckVal  = (!data.driver_form_submitted) ? "" : (data.truck_number || "");
-            const trailVal  = (!data.driver_form_submitted) ? "" : (data.trailer_number || "");
-            
-			// These two rows will now look directly into the row data column array map first
+            // 🟢 FIXED: Check database values directly so data doesn't vanish when a link is regenerated
+			const driverVal = (data.driver_name === 'TBD') ? "" : (data.driver_name || "");
+			const licVal    = (data.driver_license === 'TBD') ? "" : (data.driver_license || "");
+			const phoneVal  = (data.driver_phone === 'TBD') ? "" : (data.driver_phone || "");
+			const truckVal  = (data.truck_number === 'TBD') ? "" : (data.truck_number || "");
+			const trailVal  = (data.trailer_number === 'TBD') ? "" : (data.trailer_number || "");
+
 			const mcVal     = data.mc_number || ""; 
 			const dotVal    = data.dot_number || "";
 
@@ -717,40 +715,43 @@
             if(legacyBlock) legacyBlock.style.display = 'none';
 
             // RENDER ATTACHMENTS VAULT
-            const imgGrid = document.getElementById('imageReviewGrid');
-            imgGrid.innerHTML = ""; 
+			const imgGrid = document.getElementById('imageReviewGrid');
+			imgGrid.innerHTML = ""; 
 
-            if (data.carrier_type === 'Asset-Based') {
-                imgGrid.className = "block text-center p-4 bg-indigo-950/30 border border-indigo-900/40 rounded-xl";
-                imgGrid.innerHTML = `<div class="text-indigo-400 font-bold text-sm">🛡️ Asset Carrier Whitelist Node</div>`;
-            } else if (!data.driver_form_submitted) {
-                imgGrid.className = "block text-center p-6 bg-slate-950 rounded-xl border border-slate-850";
-                imgGrid.innerHTML = `<div class="text-slate-500 font-medium font-sans">⏱️ Awaiting Broker Payload Submission</div>`;
-            } else {
-                imgGrid.className = "grid grid-cols-2 gap-2";
-                
-                const attachments = [
-                    { label: "1) Truck Side View", url: data.truck_photo_url },
-                    { label: "2) Tractor VIN Stamp", url: data.vin_photo_url },
-                    { label: "3) Driver's License", url: data.cdl_photo_url },
-                    { label: "4) Driver Face Photo", url: data.driver_photo_url }
-                ];
-                
-                imgGrid.innerHTML = attachments.map(asset => `
-                    <div class="bg-slate-950 border border-slate-800 p-3 rounded-xl flex flex-col items-center justify-between min-h-24 text-center">
-                        <span class="text-[10px] font-semibold text-slate-400 uppercase block mb-1.5">${asset.label}</span>
-                        ${asset.url ? `
-                            <a href="${asset.url}" target="_blank" class="w-full py-1.5 bg-indigo-600/20 hover:bg-indigo-600 border border-indigo-500/30 text-indigo-400 hover:text-white font-bold text-[10px] rounded-lg transition text-center block tracking-wide cursor-pointer">
-                                📄 View Attachment
-                            </a>
-                        ` : `
-                            <span class="text-[10px] text-slate-600 bg-slate-900/40 px-2 py-1 rounded border border-slate-850/60 w-full font-medium">
-                                Dim / Missing
-                            </span>
-                        `}
-                    </div>
-                `).join('');
-            }
+			// 🟢 FIXED: Check if any actual photo URLs exist rather than checking the form submission flag
+			const hasPhotos = !!(data.truck_photo_url || data.vin_photo_url || data.cdl_photo_url || data.driver_photo_url);
+
+			if (data.carrier_type === 'Asset-Based') {
+				imgGrid.className = "block text-center p-4 bg-indigo-950/30 border border-indigo-900/40 rounded-xl";
+				imgGrid.innerHTML = `<div class="text-indigo-400 font-bold text-sm">🛡️ Asset Carrier Whitelist Node</div>`;
+			} else if (!hasPhotos) { 
+				imgGrid.className = "block text-center p-6 bg-slate-950 rounded-xl border border-slate-850";
+				imgGrid.innerHTML = `<div class="text-slate-500 font-medium font-sans">⏱️ Awaiting Broker Payload Submission</div>`;
+			} else {
+				imgGrid.className = "grid grid-cols-2 gap-2";
+				
+				const attachments = [
+					{ label: "1) Truck Side View", url: data.truck_photo_url },
+					{ label: "2) Tractor VIN Stamp", url: data.vin_photo_url },
+					{ label: "3) Driver's License", url: data.cdl_photo_url },
+					{ label: "4) Driver Face Photo", url: data.driver_photo_url }
+				];
+				
+				imgGrid.innerHTML = attachments.map(asset => `
+					<div class="bg-slate-950 border border-slate-800 p-3 rounded-xl flex flex-col items-center justify-between min-h-24 text-center">
+						<span class="text-[10px] font-semibold text-slate-400 uppercase block mb-1.5">${asset.label}</span>
+						${asset.url ? `
+							<a href="${asset.url}" target="_blank" class="w-full py-1.5 bg-indigo-600/20 hover:bg-indigo-600 border border-indigo-500/30 text-indigo-400 hover:text-white font-bold text-[10px] rounded-lg transition text-center block tracking-wide cursor-pointer">
+								📄 View Attachment
+							</a>
+						` : `
+							<span class="text-[10px] text-slate-600 bg-slate-900/40 px-2 py-1 rounded border border-slate-850/60 w-full font-medium">
+								Dim / Missing
+							</span>
+						`}
+					</div>
+				`).join('');
+			}
             document.getElementById('reviewModal').classList.remove('hidden');
         }
 
