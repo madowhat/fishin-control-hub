@@ -641,17 +641,21 @@
 			// GET REFERENCE TO WRAPPER CONTAINER
 			const detailsWrapper = document.getElementById('reviewSecureLinkWrapper').parentElement;
 			
-			// Locate or dynamically create the editable inputs card wrapper area
-			let inputContainer = document.getElementById('operatorEditableFieldsCard');
-			if (!inputContainer) {
-				inputContainer = document.createElement('div');
-				inputContainer.id = "operatorEditableFieldsCard";
-				inputContainer.className = "bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 text-xs";
-				// Injects it precisely between the Link Wrapper and the Photo Matrix area
-				detailsWrapper.insertBefore(inputContainer, document.getElementById('imageReviewGrid').parentElement);
+			// 🟢 CRITICAL FIX: If an old input card exists from a previous run, destroy it completely 
+			// to prevent duplicate HTML rendering IDs and blank input loops
+			let oldInputContainer = document.getElementById('operatorEditableFieldsCard');
+			if (oldInputContainer) {
+				oldInputContainer.remove();
 			}
 
-			// 🟢 FIXED: Checks database values directly so data doesn't vanish when a link is regenerated
+			// Create a perfectly clean editable inputs card wrapper area
+			let inputContainer = document.createElement('div');
+			inputContainer.id = "operatorEditableFieldsCard";
+			inputContainer.className = "bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 text-xs";
+			// Injects it precisely between the Link Wrapper and the Photo Matrix area
+			detailsWrapper.insertBefore(inputContainer, document.getElementById('imageReviewGrid').parentElement);
+
+			// Checks database values directly so data doesn't vanish when a link is regenerated
 			const driverVal = (data.driver_name === 'TBD') ? "" : (data.driver_name || "");
 			const licVal    = (data.driver_license === 'TBD') ? "" : (data.driver_license || "");
 			const phoneVal  = (data.driver_phone === 'TBD') ? "" : (data.driver_phone || "");
@@ -727,7 +731,7 @@
 			const imgGrid = document.getElementById('imageReviewGrid');
 			imgGrid.innerHTML = ""; 
 
-			// 🟢 FIXED: Check if physical photo URLs exist instead of checking form flags
+			// Check if physical photo URLs exist instead of checking form flags
 			const hasPhotos = !!(data.truck_photo_url || data.vin_photo_url || data.cdl_photo_url || data.driver_photo_url);
 
 			if (data.carrier_type === 'Asset-Based') {
@@ -824,15 +828,12 @@
 				// Copy straight to clipboard automatically
 				await navigator.clipboard.writeText(freshPortalUrl);
 				
-				alert("Success!\n\nNew secure token path generated and copied to your clipboard.\n\nThe maintenance window will remain open and all previously entered data stays completely visible.");
+				alert("Success!\n\nNew secure token path generated and copied to your clipboard.\n\nThe maintenance window will stay open, and the broker will be able to see and edit their previous entries.");
 
-				// 🟢 STEP 1: Force the background data structures to catch up
+				// 🟢 STEP 1: Update background table metrics first
 				await fetchMasterData();
 
-				// 🟢 STEP 2: Instantly close the open review window to clear out memory caching lag
-				closeReviewModal();
-
-				// 🟢 STEP 3: Re-execute the clean database read function to display all input fields and images perfectly
+				// 🟢 STEP 2: Re-run openReviewModal immediately to wipe cache cards and show fresh data fields/images
 				await openReviewModal(activeReviewLoad);
 
 			} catch (err) {
