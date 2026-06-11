@@ -340,7 +340,7 @@
             const load = shipmentDataCache.find(l => l.load_number === loadNum);
             if (!load) return;
 
-            document.getElementById('driverModalLoad').innerText = `Reference Load: ${load.load_number}`;
+            document.getElementById('driverModalLoad').innerText = `Confirmation Number: ${load.conf_number}`;
             // CONDITIONAL LOGIC FOR THE 3PL DOCK CLERK VIEWER
 			const brokerCarrierRow = document.getElementById('driverViewBrokerCarrierRow');
 			if (load.carrier_type === 'Asset-Based') {
