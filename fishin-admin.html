@@ -796,47 +796,49 @@
         }
 
 		// 🔄 REGENERATE LINK AND ARMED PORTAL RESET
-        async function regenerateActiveBrokerToken() {
-            if (!activeReviewLoad) return;
-            
-            const freshSecureToken = "tok_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-            const freshPortalUrl = `${window.location.origin}/carrier-portal.html?token=${freshSecureToken}`;
+		async function regenerateActiveBrokerToken() {
+			if (!activeReviewLoad) return;
+			
+			const freshSecureToken = "tok_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+			const freshPortalUrl = `${window.location.origin}/carrier-portal.html?token=${freshSecureToken}`;
 
-            try {
-                // Pre-fills remain active in the database row, but submission flags drop to authorize edits
-                const resetPayload = {
-                    secure_token: freshSecureToken,
-                    created_at: new Date().toISOString(), // Restarts the 24-hour expiration window clock
-                    release_status: 'AWAITING CARRIER DATA', // Shifts log back to waiting pool
-                    updated_by: activeUser,
-                    
-                    // Drops the locks so the broker can load the link and see their previous typos
-                    driver_form_submitted: false,
-                    photos_submitted: false
-                };
+			try {
+				// Pre-fills remain active in the database row, but submission flags drop to authorize edits
+				const resetPayload = {
+					secure_token: freshSecureToken,
+					created_at: new Date().toISOString(), // Restarts the 24-hour expiration window clock
+					release_status: 'AWAITING CARRIER DATA', // Shifts log back to waiting pool
+					updated_by: activeUser,
+					
+					// Drops the locks so the broker can load the link and see their previous typos
+					driver_form_submitted: false,
+					photos_submitted: false
+				};
 
-                const { error } = await supabaseClient.from('shipments')
+				const { error } = await supabaseClient.from('shipments')
 					.update(resetPayload)
 					.eq('load_number', activeReviewLoad);
 
 				if (error) throw error;
 
-				// Update the visible link text box inside the open window instantly
-				const linkField = document.getElementById('reviewSecureLinkField');
-				if (linkField) {
-					linkField.value = freshPortalUrl;
-				}
-
 				// Copy straight to clipboard automatically
-				navigator.clipboard.writeText(freshPortalUrl);
-				alert("Success!\n\nNew secure token path generated and copied to your clipboard.\n\nThe maintenance window will stay open, and the broker will be able to see and edit their previous entries.");
+				await navigator.clipboard.writeText(freshPortalUrl);
+				
+				alert("Success!\n\nNew secure token path generated and copied to your clipboard.\n\nThe maintenance window will remain open and all previously entered data stays completely visible.");
 
-				// 🟢 RE-RUN DATA QUEUE STREAMS REFRESH
-				fetchMasterData();
-            } catch (err) {
-                alert("Token Regeneration Interrupted: " + err.message);
-            }
-        }
+				// 🟢 STEP 1: Force the background data structures to catch up
+				await fetchMasterData();
+
+				// 🟢 STEP 2: Instantly close the open review window to clear out memory caching lag
+				closeReviewModal();
+
+				// 🟢 STEP 3: Re-execute the clean database read function to display all input fields and images perfectly
+				await openReviewModal(activeReviewLoad);
+
+			} catch (err) {
+				alert("Token Regeneration Interrupted: " + err.message);
+			}
+		}
 
         function closeReviewModal() { document.getElementById('reviewModal').classList.add('hidden'); }
 
