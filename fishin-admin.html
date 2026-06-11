@@ -642,15 +642,13 @@
                 detailsWrapper.insertBefore(inputContainer, document.getElementById('imageReviewGrid').parentElement);
             }
 
-            // 🟢 CONDITIONAL LOGIC: If form has not been submitted or values are 'TBD', start completely blank. 
-            // Otherwise, pre-fill with carrier values. Everything remains fully editable.
-            const driverVal = (data.driver_name === 'TBD' || !data.driver_form_submitted) ? "" : (data.driver_name || "");
-            const licVal    = (!data.driver_form_submitted) ? "" : (data.driver_license || "");
-            const phoneVal  = (!data.driver_form_submitted) ? "" : (data.driver_phone || "");
-            const truckVal  = (!data.driver_form_submitted) ? "" : (data.truck_number || "");
-            const trailVal  = (!data.driver_form_submitted) ? "" : (data.trailer_number || "");
-            
-			// These two rows will now look directly into the row data column array map first
+            // Check database values directly so data doesn't vanish when a link is regenerated
+			const driverVal = (data.driver_name === 'TBD') ? "" : (data.driver_name || "");
+			const licVal    = (data.driver_license === 'TBD') ? "" : (data.driver_license || "");
+			const phoneVal  = (data.driver_phone === 'TBD') ? "" : (data.driver_phone || "");
+			const truckVal  = (data.truck_number === 'TBD') ? "" : (data.truck_number || "");
+			const trailVal  = (data.trailer_number === 'TBD') ? "" : (data.trailer_number || "");
+
 			const mcVal     = data.mc_number || ""; 
 			const dotVal    = data.dot_number || "";
 
