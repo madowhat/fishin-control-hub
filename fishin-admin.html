@@ -810,7 +810,7 @@
 				// Pre-fills remain active in the database row, but submission flags drop to authorize edits
 				const resetPayload = {
 					secure_token: freshSecureToken,
-					created_at: new Date().toISOString(), // Restarts the 24-hour expiration window clock
+					created_at: new Date().toISOString(), // Restarts the 72-hour expiration window clock
 					release_status: 'AWAITING CARRIER DATA', // Shifts log back to waiting pool
 					updated_by: activeUser,
 					

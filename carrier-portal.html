@@ -10,7 +10,7 @@
     
     <div id="expirationBlock" class="hidden text-center space-y-2 max-w-sm">
         <h2 class="text-xl font-bold text-rose-500">🔒 Secure Link Deactivated</h2>
-        <p class="text-xs text-slate-400">Security Rule Override: This load reservation link has either passed its 24-hour expiration window or a manifest has already been successfully submitted for this shipment. Please contact your Fishin' transportation coordinator to request a new link.</p>
+        <p class="text-xs text-slate-400">Security Rule Override: This load reservation link has either passed its 72-hour expiration window or a manifest has already been successfully submitted for this shipment. Please contact your Fishin' transportation coordinator to request a new link.</p>
     </div>
 
     <div id="portalFormCard" class="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-md w-full shadow-2xl space-y-6">
@@ -128,7 +128,7 @@
 
             // Calculate 24-hour expiration window
             const timeDifference = new Date() - new Date(data.created_at);
-            if (timeDifference > 24 * 60 * 60 * 1000) {
+            if (timeDifference > 72 * 60 * 60 * 1000) {
                 document.getElementById('portalFormCard').classList.add('hidden');
                 document.getElementById('expirationBlock').classList.remove('hidden');
                 return;
