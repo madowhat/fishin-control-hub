@@ -57,6 +57,7 @@
     <section class="bg-slate-900/40 border-b border-slate-800/60 px-6 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex flex-wrap items-center gap-4">
             <div class="bg-slate-950 p-1 rounded-xl border border-slate-800 flex gap-1">
+                <button onclick="changeDay('past3days')" id="day-past3days" class="px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer text-slate-400 hover:text-slate-200">Past 3 Days</button>
                 <button onclick="changeDay('today')" id="day-today" class="px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer bg-indigo-600 text-white shadow-xs">Today</button>
                 <button onclick="changeDay('tomorrow')" id="day-tomorrow" class="px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer text-slate-400 hover:text-slate-200">Tomorrow</button>
             </div>
@@ -127,7 +128,7 @@
             </div>
             <div class="space-y-2.5 bg-slate-950/60 p-4 rounded-xl border border-slate-800 text-xs">
                 <div id="driverViewBrokerCarrierRow" class="flex justify-between items-center border-b border-slate-900/60 pb-2 hidden"><span class="text-slate-400 font-medium">Broker Dispatched Carrier:</span><span id="driverViewBrokerCarrier" class="text-indigo-400 font-bold">---</span></div>
-				<div class="flex justify-between items-center border-b border-slate-900/60 pb-2"><span class="text-slate-400 font-medium">Driver’s Name:</span><span id="driverViewName" class="text-white font-semibold text-sm">---</span></div>
+                <div class="flex justify-between items-center border-b border-slate-900/60 pb-2"><span class="text-slate-400 font-medium">Driver’s Name:</span><span id="driverViewName" class="text-white font-semibold text-sm">---</span></div>
                 <div class="flex justify-between items-center border-b border-slate-900/60 pb-2"><span class="text-slate-400 font-medium">Driver’s License Number:</span><span id="driverViewLicense" class="text-slate-200 font-mono font-medium">---</span></div>
                 <div class="flex justify-between items-center border-b border-slate-900/60 pb-2"><span class="text-slate-400 font-medium">Driver’s Phone Number:</span><span id="driverViewPhone" class="text-slate-200 font-medium">---</span></div>
                 <div class="flex justify-between items-center border-b border-slate-900/60 pb-2"><span class="text-slate-400 font-medium">Truck Number:</span><span id="driverViewTruck" class="text-slate-200 font-mono font-medium">---</span></div>
@@ -149,7 +150,7 @@
         const supabaseClient = supabase.createClient("https://xknhqscsusfuhodujajy.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhrbmhxc2NzdXNmdWhvZHVqYWp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NDU5MjMsImV4cCI6MjA5NTEyMTkyM30.IqQ_WeKRfg5EO2y8rbn7MAUT1vSMCS-6fIxC2M1oTGw");
         
         let currentTerminalFacility = "";
-        let activeDayFilter = 'today';
+        let activeDayFilter = 'today'; // Default tab initialization anchor flag
         let activeTypeFilter = 'all';
         let expandedLoads = new Set();
         let shipmentDataCache = [];
@@ -173,6 +174,9 @@
                 window.history.replaceState(null, '', `?warehouse=${currentTerminalFacility.toLowerCase()}`);
                 document.getElementById('warehouseLoginOverlay').classList.add('hidden');
                 document.getElementById('facilityBadge').innerText = `${currentTerminalFacility} Hub`;
+                
+                // 🟢 FIXED: Automatically enforce Today filter active visualization layout states on initial mount
+                changeDay('today'); 
                 initializeTerminalLoop();
             }
         }
@@ -185,6 +189,9 @@
                 window.history.replaceState(null, '', `?warehouse=${currentTerminalFacility.toLowerCase()}`);
                 document.getElementById('warehouseLoginOverlay').classList.add('hidden');
                 document.getElementById('facilityBadge').innerText = `${currentTerminalFacility} Hub`;
+                
+                // 🟢 FIXED: Force Today visualization trigger right after a fresh passcode login sequence
+                changeDay('today');
                 initializeTerminalLoop();
             } else { alert("Invalid warehouse terminal gate authentication key code."); }
         }
@@ -192,7 +199,7 @@
         function initializeTerminalLoop() {
             fetchTerminalQueue();
             setInterval(updateTerminalClocks, 1000);
-            // ⏱️ Silent 2-second polling loop bypasses real-time streaming bugs completely
+            // ⏱️ Silent 2-second polling loop triggers matrix rebuild cascades directly from local cache updates
             setInterval(fetchTerminalQueue, 2000);
         }
 
@@ -202,6 +209,7 @@
         }
 
         async function fetchTerminalQueue() {
+            // Option A Local Filtering Cache Engine: Automatically pulls entire operational context
             const { data } = await supabaseClient
                 .from('shipments')
                 .select('*')
@@ -221,31 +229,50 @@
             const todayDateObj = new Date(warehouseTodayStr + "T00:00:00");
             const warehouseDayOfWeek = todayDateObj.getDay(); 
 
-            let matchDatesArray = [];
-            if (activeDayFilter === 'today') {
-                matchDatesArray.push(warehouseTodayStr);
-            } else if (activeDayFilter === 'tomorrow') {
-                if (warehouseDayOfWeek === 5) {
-                    for (let i = 1; i <= 3; i++) {
-                        const tempObj = new Date(warehouseTodayStr + "T00:00:00");
-                        tempObj.setDate(tempObj.getDate() + i);
-                        matchDatesArray.push(tempObj.toISOString().split('T')[0]);
-                    }
-                } else {
-                    todayDateObj.setDate(todayDateObj.getDate() + 1);
-                    matchDatesArray.push(todayDateObj.toISOString().split('T')[0]);
-                }
-            }
+            let filteredPool = [];
+            let isPastView = (activeDayFilter === 'past3days');
 
-            let filteredPool = shipmentDataCache.filter(row => matchDatesArray.includes(row.pickup_date));
+            // 🟢 FIXED: CHRONOLOGICAL OPERATIONAL PAST 3 DAYS MATRICES CALCULATIONS
+            if (isPastView) {
+                // Pinpoint unique calendar dates in cache that are strictly older than today
+                const pastDatesInCache = shipmentDataCache
+                    .map(row => row.pickup_date)
+                    .filter(d => d < warehouseTodayStr);
+                
+                // Sort descending (most recent past calendar days bubble to the index top)
+                const uniqueSortedPastDates = [...new Set(pastDatesInCache)].sort((a, b) => b.localeCompare(a));
+                
+                // Slice precisely the top 3 target days where shipments occurred (auto-handles Monday rules perfectly)
+                const targetPastDatesRange = uniqueSortedPastDates.slice(0, 3);
+                
+                filteredPool = shipmentDataCache.filter(row => targetPastDatesRange.includes(row.pickup_date));
+            } else {
+                let matchDatesArray = [];
+                if (activeDayFilter === 'today') {
+                    matchDatesArray.push(warehouseTodayStr);
+                } else if (activeDayFilter === 'tomorrow') {
+                    if (warehouseDayOfWeek === 5) {
+                        for (let i = 1; i <= 3; i++) {
+                            const tempObj = new Date(warehouseTodayStr + "T00:00:00");
+                            tempObj.setDate(tempObj.getDate() + i);
+                            matchDatesArray.push(tempObj.toISOString().split('T')[0]);
+                        }
+                    } else {
+                        todayDateObj.setDate(todayDateObj.getDate() + 1);
+                        matchDatesArray.push(todayDateObj.toISOString().split('T')[0]);
+                    }
+                }
+                filteredPool = shipmentDataCache.filter(row => matchDatesArray.includes(row.pickup_date));
+            }
 
             if (activeTypeFilter === 'exceptions') {
                 filteredPool = filteredPool.filter(row => row.release_status.includes('HOLD') || row.release_status.includes('AWAITING'));
             }
 
-            // 🟢 FIXED: Mathematical Time Normalization Sort (Earliest First)
+            // TIME & TIMELINE SEGMENT SORT ENGINE
             filteredPool.sort((a, b) => {
-                const dateCompare = a.pickup_date.localeCompare(b.pickup_date);
+                // If history mode, display the newest history block first. Normal views run chronological ascending.
+                const dateCompare = isPastView ? b.pickup_date.localeCompare(a.pickup_date) : a.pickup_date.localeCompare(b.pickup_date);
                 if (dateCompare !== 0) return dateCompare;
 
                 function parseTimeToMinutes(timeStr) {
@@ -264,10 +291,27 @@
                 return;
             }
 
+            let lastGroupedDateHeader = "";
+
             filteredPool.forEach(row => {
                 const stops = row.stops_json || [];
                 
-                // 🟢 REMOVED: Collapsible checks completely bypassed so rows are expanded at all times
+                // 🟢 FIXED: INJECT DATE SEPARATOR BANNER SEGMENTS FOR ACCURATE TIMELINE VISUAL VISIBILITY
+                if (isPastView && row.pickup_date !== lastGroupedDateHeader) {
+                    lastGroupedDateHeader = row.pickup_date;
+                    const headerDateObj = new Date(row.pickup_date + "T00:00:00");
+                    const longWeekdayString = headerDateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase();
+                    
+                    const bannerRow = document.createElement('tr');
+                    bannerRow.className = "bg-slate-950/90 border-y border-slate-800/80 sticky top-0 z-10";
+                    bannerRow.innerHTML = `
+                        <td colspan="9" class="py-2.5 px-4 text-[10px] font-black tracking-widest text-indigo-400 uppercase select-none">
+                            📅 Operational History Segment — ${longWeekdayString}
+                        </td>
+                    `;
+                    tbody.appendChild(bannerRow);
+                }
+
                 let statusBg = row.release_status.startsWith('APPROVED') ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800/60' :
                                row.release_status.startsWith('HOLD') ? 'bg-rose-950/80 text-rose-400 border-rose-800/60 animate-pulse' :
                                'bg-amber-950/80 text-amber-400 border-amber-800/60';
@@ -275,14 +319,12 @@
                 const rowDateObj = new Date(row.pickup_date + "T00:00:00");
                 const weekdayString = rowDateObj.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
 
-                // 🟢 ALWAYS EXPANDED: Multi-stops render nested rows automatically
                 let soDisplay = stops.map(s => `<div class="font-mono text-slate-300 py-0.5">${s.so_number || '---'}</div>`).join('');
                 let destDisplay = stops.map(s => `<div class="text-slate-300 font-medium py-0.5 truncate max-w-[350px]" title="${s.destination}">${s.destination || '---'}</div>`).join('');
 
                 const tr = document.createElement('tr');
-                tr.className = `hover:bg-slate-800/40 transition align-middle`; // 🟢 REMOVED: cursor-pointer from entire row
+                tr.className = `hover:bg-slate-800/40 transition align-middle`;
                 
-                // 🟢 ADDED: cursor-pointer directly on the Load # cell to guarantee the finger pointer cursor
                 tr.innerHTML = `
                     <td class="py-4 px-4 font-mono font-bold text-slate-300 text-xs flex items-center gap-1.5 h-[53px]">
                         <span>${row.pickup_time}</span>
@@ -305,14 +347,15 @@
                     </td>
                     <td class="py-4 px-4 text-center"><span class="block px-3 py-1.5 text-[11px] font-black tracking-wider rounded-lg border uppercase text-center ${statusBg}">${row.release_status}</span></td>
                     <td class="py-4 px-4 text-[10px] text-slate-500 space-y-0.5 font-mono">
-                        <div class="text-slate-400 truncate">👤 ${row.updated_by}</div>
-                        <div class="text-[9px]">⏱️ ${new Date(row.last_updated_time).toLocaleTimeString()}</div>
+                        <div class="text-slate-400 truncate">👤 ${row.updated_by || 'SYSTEM'}</div>
+                        <div class="text-[9px]">⏱️ ${row.last_updated_time ? new Date(row.last_updated_time).toLocaleTimeString() : '---'}</div>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
+        // 🟢 FIXED: ADJUSTED NAVIGATION MANAGER AND ASSIGNED DYNAMIC ACTIVE STYLING ASSIGNMENTS FOR 3 TABS
         function changeDay(day) {
             activeDayFilter = day;
             const tz = warehouseTimezones[currentTerminalFacility] || "America/New_York";
@@ -320,10 +363,10 @@
             const todayDateObj = new Date(warehouseTodayStr + "T00:00:00");
             const warehouseDayOfWeek = todayDateObj.getDay();
 
-            // Dynamic Button text re-labeling
             document.getElementById('day-today').innerText = "Today";
             document.getElementById('day-tomorrow').innerText = (warehouseDayOfWeek === 5) ? "Weekend / Mon" : "Tomorrow";
 
+            document.getElementById('day-past3days').className = day === 'past3days' ? "px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer bg-indigo-600 text-white shadow-xs" : "px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer text-slate-400 hover:text-slate-200";
             document.getElementById('day-today').className = day === 'today' ? "px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer bg-indigo-600 text-white shadow-xs" : "px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer text-slate-400 hover:text-slate-200";
             document.getElementById('day-tomorrow').className = day === 'tomorrow' ? "px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer bg-indigo-600 text-white shadow-xs" : "px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer text-slate-400 hover:text-slate-200";
             renderTerminalMatrix();
@@ -341,16 +384,15 @@
             if (!load) return;
 
             document.getElementById('driverModalLoad').innerText = `Confirmation Number: ${load.conf_number}`;
-            // CONDITIONAL LOGIC FOR THE 3PL DOCK CLERK VIEWER
-			const brokerCarrierRow = document.getElementById('driverViewBrokerCarrierRow');
-			if (load.carrier_type === 'Asset-Based') {
-				brokerCarrierRow.classList.add('hidden');
-				document.getElementById('driverViewBrokerCarrier').innerText = "";
-			} else {
-				brokerCarrierRow.classList.remove('hidden');
-				document.getElementById('driverViewBrokerCarrier').innerText = load.broker_carrier_name || 'TBD';
-			}
-			document.getElementById('driverViewName').innerText = load.driver_name || 'TBD';
+            const brokerCarrierRow = document.getElementById('driverViewBrokerCarrierRow');
+            if (load.carrier_type === 'Asset-Based') {
+                brokerCarrierRow.classList.add('hidden');
+                document.getElementById('driverViewBrokerCarrier').innerText = "";
+            } else {
+                brokerCarrierRow.classList.remove('hidden');
+                document.getElementById('driverViewBrokerCarrier').innerText = load.broker_carrier_name || 'TBD';
+            }
+            document.getElementById('driverViewName').innerText = load.driver_name || 'TBD';
             document.getElementById('driverViewLicense').innerText = load.driver_license || 'TBD';
             document.getElementById('driverViewPhone').innerText = load.driver_phone || 'TBD';
             document.getElementById('driverViewTruck').innerText = load.truck_number || 'TBD';
@@ -369,8 +411,7 @@
                     <div class="text-slate-600 text-xl">📁</div>
                     <p class="text-[11px] text-slate-500 mt-1">Awaiting dispatch document ingestion payload.</p>
                 `;
-			} else {
-                // 📸 INJECT DIRECT CLICKABLE VIEWER BUTTONS FOR DOCK CLERKS
+            } else {
                 photoContainer.className = "grid grid-cols-2 gap-2 w-full pt-1";
                 
                 const filesPool = [
@@ -443,7 +484,6 @@
             const dateOptions = { timeZone: tz, year: 'numeric', month: 'long', day: 'numeric' };
             document.getElementById('liveDateDisplay').innerText = new Intl.DateTimeFormat('en-US', dateOptions).format(new Date());
             
-            // Adjust tomorrow button label text dynamically based on Friday transitions
             const warehouseTodayStr = getWarehouseCurrentDateString(tz);
             const todayDateObj = new Date(warehouseTodayStr + "T00:00:00");
             if(todayDateObj.getDay() === 5 && activeDayFilter !== 'tomorrow') {
