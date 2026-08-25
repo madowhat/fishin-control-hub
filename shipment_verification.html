@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Outbound Clearance | The Fishin' Company</title>
+    
+    <!-- Tailwind -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        /* Custom Scrollbar for a polished dark theme look */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0b0f19; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+        /* Smooth Accordion Transitions */
+        .accordion-content { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.3s ease-in-out; }
+        .accordion-content.open { grid-template-rows: 1fr; }
+        .accordion-inner { overflow: hidden; }
+        .chevron { transition: transform 0.3s ease-in-out; }
+        .chevron.open { transform: rotate(180deg); }
+
+        /* Hold detail tooltip */
+        .hold-tip { cursor: help; border-bottom: 1px dotted currentColor; }
+
+        /* Slow red flashing for ON HOLD (critical) */
+        @keyframes holdFlash {
+            0%, 100% { background-color: rgba(244, 63, 94, 0.15); border-color: rgba(244, 63, 94, 0.5); color: #fda4af; }
+            50% { background-color: rgba(244, 63, 94, 0.55); border-color: #f43f5e; color: #ffffff; }
+        }
+        .hold-flash {
+            animation: holdFlash 1.8s ease-in-out infinite;
+            border: 1px solid rgba(244, 63, 94, 0.5);
+            border-radius: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+        }
+    </style>
+</head>
+<body class="bg-[#0b0f19] text-slate-200 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- TOP MENU BAR (added for Fishin Logistics Hub) -->
+    <nav class="bg-slate-950 border-b border-slate-800 shrink-0">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-12">
+            <a href="index.html" class="flex items-center gap-2 text-sm text-slate-300 hover:text-white transition group">
+                <svg class="w-4 h-4 text-indigo-400 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                <span class="font-medium">Back to Fishin Logistics Hub</span>
+            </a>
+            <span class="text-xs text-slate-500 font-medium tracking-wide">Shipment Verification Portal</span>
+        </div>
+    </nav>
+
+    <!-- MAIN APP CONTENT -->
+    <div id="app-content" class="flex-1 flex flex-col h-screen overflow-hidden">
+        
+        <!-- HEADER -->
+        <header class="bg-slate-900 border-b border-slate-800 shrink-0">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-sm shadow-indigo-600/20">F</div>
+                        <div>
+                            <h1 class="text-lg font-semibold text-white leading-tight">Shipment Verification Portal</h1>
+                            <p class="text-xs text-slate-400">Allocation & Compliance Status</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-6">
+                        <div class="hidden sm:block text-sm text-slate-400">
+                            Operator: <span id="user-email-display" class="text-slate-200 font-medium">operator@fishinco.com</span>
+                        </div>
+                        <div class="text-xs text-slate-500">
+                            <span id="last-updated">—</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN DASHBOARD -->
+        <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+            <div class="max-w-7xl mx-auto">
+                
+                <!-- TABS (Dates are injected via JS) -->
+                <div class="flex gap-2 mb-6 border-b border-slate-800 pb-4">
+                    <button id="tab-today" onclick="switchTab('today')" class="tab-btn active-tab px-5 py-2 text-sm font-medium rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 transition-all">Loading...</button>
+                    <button id="tab-tomorrow" onclick="switchTab('tomorrow')" class="tab-btn px-5 py-2 text-sm font-medium rounded-full bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-all">Loading...</button>
+                </div>
+
+                <!-- DASHBOARD LIST CONTAINER -->
+                <div id="dashboard-container" class="space-y-4 pb-20">
+                    <!-- JavaScript will inject nested accordions here -->
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- Supabase config (anon key — safe for the browser; only SELECT is exposed) ---
+        const SUPABASE_URL = "https://xknhqscsusfuhodujajy.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhrbmhxc2NzdXNmdWhvZHVqYWp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NDU5MjMsImV4cCI6MjA5NTEyMTkyM30.IqQ_WeKRfg5EO2y8rbn7MAUT1vSMCS-6fIxC2M1oTGw";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // --- SVGs for Icons ---
+        const ICON_CHECK = `<svg class="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>`;
+        const ICON_X = `<svg class="w-4 h-4 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>`;
+        const ICON_WARN = `<svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>`;
+        const ICON_CHEVRON = `<svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>`;
+
+        // --- LIVE DATA (from Supabase) ---
+        let dashboardData = { today: [], tomorrow: [] };
+        let currentTab = 'today';
+        let lastUpdateTs = 0;   // ms timestamp of the last data push (from Supabase)
+
+        // Fixed facility display order (always the same on both tabs)
+        const FACILITY_ORDER = [
+            'Lineage Baltimore', 'Lineage Mobile', 'Lineage Burien',
+            'Lineage Elizabeth', 'Lineage Chicago', 'FreezPak Suffolk', 'FreezPak Chicago'
+        ];
+        const facilityRank = wh => {
+            const i = FACILITY_ORDER.indexOf(wh);
+            return i === -1 ? FACILITY_ORDER.length : i;
+        };
+        let updateTimer;
+
+        // Fetch today's + tomorrow's rows from outbound_clearance, group into dashboard shape
+        async function fetchData() {
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const fmt = d => d.toISOString().split('T')[0];
+            const dates = [fmt(today), fmt(tomorrow)];
+
+            const { data, error } = await supabaseClient
+                .from('outbound_clearance')
+                .select('*')
+                .in('ship_date', dates)
+                .order('ship_date', { ascending: true });
+
+            if (error) { console.error('Supabase error:', error); return; }
+
+            // Group into {today:[], tomorrow:[]} keyed by ship_date
+            const byDay = { today: [], tomorrow: [] };
+            (data || []).forEach(row => {
+                const key = row.ship_date === fmt(today) ? 'today' : 'tomorrow';
+                byDay[key].push(row);
+            });
+
+            // Build warehouse grouping per day (same shape as mockup)
+            const buildDay = (rows) => {
+                const whMap = {};
+                rows.forEach(row => {
+                    const wh = row.warehouse || 'Unknown';
+                    if (!whMap[wh]) whMap[wh] = { id: 'wh-' + wh.replace(/\s+/g,'-'), name: wh, tz: row.tz || 'America/New_York', sos: [] };
+                    const soId = row.so_number || '';
+                    let so = whMap[wh].sos.find(s => s.number === soId);
+                    if (!so) {
+                        // An SO with no appointment time is missing from WMS (present in NAV only)
+                        so = { id: 'so-' + soId, number: soId, appt: row.appt_time || '', allocated: !!row.allocated, missing_from_wms: !(row.appt_time && String(row.appt_time).trim()), lines: [] };
+                        whMap[wh].sos.push(so);
+                    }
+                    // lines from lines_json
+                    (row.lines_json || []).forEach(ln => {
+                        so.lines.push({
+                            itemNumber: ln.itemNumber || '',
+                            description: ln.description || '',
+                            lot: ln.lot || '',
+                            qty: ln.qty != null ? String(ln.qty) : '',
+                            hms: ln.hms || 'unavailable',
+                            hold_type: ln.hold_type || '',
+                            hold_msg: ln.hold_msg || ''
+                        });
+                    });
+                });
+                // Sort SOs chronologically by appointment time (parse "10:30 AM")
+                const apptMin = t => {
+                    const m = /(\d{1,2}):(\d{2})\s*(AM|PM)/i.exec(t || '');
+                    if (!m) return 99999;
+                    let h = parseInt(m[1],10), min = parseInt(m[2],10);
+                    if (m[3].toUpperCase()==='PM' && h<12) h += 12;
+                    if (m[3].toUpperCase()==='AM' && h===12) h = 0;
+                    return h*60 + min;
+                };
+                Object.values(whMap).forEach(wh => {
+                    wh.sos.sort((a,b) => apptMin(a.appt) - apptMin(b.appt));
+                });
+                // Sort warehouses by fixed facility order
+                return Object.values(whMap).sort((a,b) => facilityRank(a.name) - facilityRank(b.name));
+            };
+
+            dashboardData.today = buildDay(byDay.today);
+            dashboardData.tomorrow = buildDay(byDay.tomorrow);
+
+            // Record the latest push timestamp from the data (max last_updated_at)
+            const stamps = (data||[]).map(r => r.last_updated_at ? new Date(r.last_updated_at).getTime() : 0).filter(Boolean);
+            lastUpdateTs = stamps.length ? Math.max(...stamps) : Date.now();
+            updateLastUpdated();
+            setupDates();
+            renderDashboard(currentTab);
+        }
+
+        // Show "updated hh:mm:ss ago" since the last data push, ticking every second
+        function updateLastUpdated() {
+            const el = document.getElementById('last-updated');
+            if (!el) return;
+            const diff = Math.max(0, Date.now() - lastUpdateTs);
+            const s = Math.floor(diff/1000);
+            const hh = String(Math.floor(s/3600)).padStart(2,'0');
+            const mm = String(Math.floor((s%3600)/60)).padStart(2,'0');
+            const ss = String(s%60).padStart(2,'0');
+            el.innerText = 'Updated ' + hh + ':' + mm + ':' + ss + ' ago';
+        }
+
+        // Auto-load dashboard on startup
+        window.onload = async () => {
+            // Login happens once at the Fishin Logistics Hub — redirect there if no valid session
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!(session && session.user && session.user.email.endsWith("@fishinco.com"))) {
+                window.location.href = 'index.html';
+                return;
+            }
+            fetchData();
+            // Refresh data + clock every minute (keeps accordion states via diffing in render)
+            updateTimer = setInterval(() => { fetchData(); }, 60000);
+            // Tick the "updated X ago" counter every second
+            setInterval(() => { updateLastUpdated(); }, 1000);
+        };
+
+        function setupDates() {
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const options = { weekday: 'short', month: 'short', day: 'numeric' };
+            document.getElementById('tab-today').innerText = today.toLocaleDateString('en-US', options);
+            document.getElementById('tab-tomorrow').innerText = tomorrow.toLocaleDateString('en-US', options);
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            const btnToday = document.getElementById('tab-today');
+            const btnTomorrow = document.getElementById('tab-tomorrow');
+            if (tab === 'today') {
+                btnToday.className = "tab-btn active-tab px-5 py-2 text-sm font-medium rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 transition-all";
+                btnTomorrow.className = "tab-btn px-5 py-2 text-sm font-medium rounded-full bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-all";
+            } else {
+                btnTomorrow.className = "tab-btn active-tab px-5 py-2 text-sm font-medium rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 transition-all";
+                btnToday.className = "tab-btn px-5 py-2 text-sm font-medium rounded-full bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-all";
+            }
+            renderDashboard(tab);
+        }
+
+        function getLocalTimeForWarehouse(tzString) {
+            try {
+                return new Intl.DateTimeFormat('en-US', { timeZone: tzString, hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }).format(new Date());
+            } catch (e) { return "Time Unknown"; }
+        }
+
+        // Map HMS status -> badge + icon (user rules)
+        //   active         -> green check, "Available"
+        //   on_hold        -> red X, "ON HOLD" + hold type/msg
+        //   unavailable    -> amber warn, "Unavailable" (lot in HMS but not active — needs NAV entry)
+        //   not_allocated  -> amber warn, "Not Allocated" (no lot assigned — nothing to check in HMS)
+        // Render the lot cell: a line can carry many lot numbers joined by "+".
+        // Split them so each lot sits on its own line (instead of overflowing into
+        // the neighboring columns), and allow long tokens to wrap within the cell.
+        function renderLots(lot) {
+            const raw = String(lot || '').trim();
+            if (!raw) return '';
+            const lots = raw.split('+').map(s => s.trim()).filter(Boolean);
+            if (lots.length === 0) return '';
+            return lots
+                .map(l => `<div class="break-words whitespace-normal leading-snug">${l}</div>`)
+                .join('');
+        }
+
+        function lineStatusUI(hms, hold_type, hold_msg) {
+            if (hms === 'on_hold') {
+                const detail = [hold_type, hold_msg].filter(Boolean).join(' — ');
+                const ht = (hold_type || '').toString().trim();
+                const holdLabel = ht ? ht.slice(0, 10) : 'ON HOLD';
+                return { icon: ICON_X, label: 'ON HOLD', color: 'text-rose-500', badge: 'bg-rose-500/10 border-rose-500/20 text-rose-400', tip: detail, holdLabel };
+            }
+            if (hms === 'unavailable') {
+                return { icon: ICON_WARN, label: 'Unavailable', color: 'text-amber-400', badge: 'bg-amber-500/10 border-amber-500/20 text-amber-400', tip: 'Unavailable in HMS - may need NAV entry', holdLabel: '' };
+            }
+            if (hms === 'not_allocated') {
+                return { icon: ICON_WARN, label: 'Not Allocated', color: 'text-amber-400', badge: 'bg-amber-500/10 border-amber-500/20 text-amber-400', tip: 'No lot assigned - not allocated yet', holdLabel: '' };
+            }
+            return { icon: ICON_CHECK, label: 'Available', color: 'text-emerald-500', badge: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400', tip: 'Hold check passed', holdLabel: '' };
+        }
+
+        function renderDashboard(tab) {
+            const container = document.getElementById('dashboard-container');
+            const data = dashboardData[tab];
+            let html = '';
+
+            data.forEach(wh => {
+                let totalSOs = wh.sos.length;
+                let totalLots = 0;
+                let allAllocated = true;
+                let hasUnavailable = false;
+                let hasNotAllocated = false;
+                let hasOnHold = false;  // any lot on hold in any SO at this warehouse
+                let hasMissingWms = false;  // any SO missing from WMS (no appointment)
+                let hmsOverall = 'active'; // worst of the lines
+                let localTimeString = getLocalTimeForWarehouse(wh.tz);
+
+                wh.sos.forEach(so => {
+                    if (so.missing_from_wms) hasMissingWms = true;
+                    if (!so.allocated) allAllocated = false;
+                    totalLots += so.lines.length;
+                    so.lines.forEach(line => {
+                        if (line.hms === 'on_hold') { hmsOverall = 'on_hold'; hasOnHold = true; }
+                        else if (line.hms === 'unavailable' && hmsOverall !== 'on_hold') hmsOverall = 'unavailable';
+                        else if (line.hms === 'not_allocated' && hmsOverall === 'active') hmsOverall = 'not_allocated';
+                        if (line.hms === 'unavailable') hasUnavailable = true;
+                        if (line.hms === 'not_allocated') hasNotAllocated = true;
+                    });
+                });
+
+                // Allocation badge:
+                //  - any lot ON HOLD -> CRITICAL red "Allocation Issue" (in addition to flashing ON HOLD button)
+                //  - unavailable / missing-from-WMS -> yellow "Allocation Issue" (not red)
+                //  - fully allocated (no issues) -> green "Allocated"
+                //  - genuinely not-allocated SOs present -> red "Allocation Issue"
+                let allocBadgeHTML;
+                if (hasOnHold) {
+                    allocBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold">${ICON_X} Allocation Issue</span>`;
+                } else if (hasUnavailable || hasMissingWms) {
+                    allocBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">${ICON_WARN} Allocation Issue</span>`;
+                } else if (allAllocated) {
+                    allocBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">${ICON_CHECK} Allocated</span>`;
+                } else {
+                    allocBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold">${ICON_X} Allocation Issue</span>`;
+                }
+
+                // HMS badge: on_hold -> red; unavailable -> amber (unchanged); 
+                // not_allocated -> yellow "Hold Check Incomplete"; else green Hold Check Passed
+                let hmsBadgeHTML = '';
+                if (hmsOverall === 'active') {
+                    hmsBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">${ICON_CHECK} Hold Check Passed</span>`;
+                } else if (hmsOverall === 'on_hold') {
+                    // Critical: slowly flashing red button for the whole warehouse
+                    hmsBadgeHTML = `<span class="hold-flash"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>ON HOLD</span>`;
+                } else if (hmsOverall === 'unavailable') {
+                    hmsBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">${ICON_WARN} Unavailable</span>`;
+                } else {
+                    // not_allocated (or any non-fully-checked)
+                    hmsBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">${ICON_WARN} Hold Check Incomplete</span>`;
+                }
+
+                html += `
+                <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl overflow-hidden mb-4">
+                    <div class="p-4 sm:px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-pointer hover:bg-slate-800/50 transition-colors" onclick="toggleAccordion('content-${wh.id}', 'chev-${wh.id}')">
+                        <div>
+                            <h3 class="text-base font-semibold text-white tracking-wide">${wh.name}</h3>
+                            <p class="text-xs text-slate-400 mt-1">
+                                <span class="font-medium text-indigo-300">Local Time: ${localTimeString}</span> 
+                                <span class="mx-2 opacity-50">&middot;</span> ${totalSOs} SOs 
+                                <span class="mx-2 opacity-50">&middot;</span> ${totalLots} lots
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                            <div class="flex items-center gap-2">${allocBadgeHTML}${hmsBadgeHTML}</div>
+                            <div id="chev-${wh.id}" class="chevron ml-2">${ICON_CHEVRON}</div>
+                        </div>
+                    </div>
+                    <div id="content-${wh.id}" class="accordion-content border-t border-slate-800/50">
+                        <div class="accordion-inner bg-slate-900/30">
+                `;
+
+                wh.sos.forEach(so => {
+                    // If any line in this SO is unavailable in HMS, treat as allocation issue (yellow)
+                    const soHasUnavailable = so.lines.some(l => l.hms === 'unavailable');
+                    // If any lot in this SO is ON HOLD, it's a CRITICAL allocation issue -> red flag + flashing button
+                    const soHasOnHold = so.lines.some(l => l.hms === 'on_hold');
+                    let soAllocIcon, soAllocText, soAllocColor;
+                    if (soHasOnHold) {
+                        soAllocIcon = ICON_X;
+                        soAllocText = 'Allocation Issue';
+                        soAllocColor = 'text-rose-500';
+                    } else if (so.missing_from_wms) {
+                        soAllocIcon = ICON_WARN;
+                        soAllocText = 'WMS missing appointment';
+                        soAllocColor = 'text-amber-400';
+                    } else if (soHasUnavailable) {
+                        soAllocIcon = ICON_WARN;
+                        soAllocText = 'Allocation Issue';
+                        soAllocColor = 'text-amber-400';
+                    } else if (so.allocated) {
+                        soAllocIcon = ICON_CHECK;
+                        soAllocText = 'Allocated';
+                        soAllocColor = 'text-emerald-500';
+                    } else {
+                        soAllocIcon = ICON_X;
+                        soAllocText = 'Not Allocated';
+                        soAllocColor = 'text-rose-500';
+                    }
+                    // Flashing red "On Hold" button for the SO line if any lot is held
+                    const soOnHoldBtn = soHasOnHold
+                        ? `<span class="hold-flash"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>ON HOLD</span>`
+                        : '';
+
+                    html += `
+                            <div class="border-b border-slate-800/50 last:border-0">
+                                <div class="px-4 sm:px-8 py-3 flex justify-between items-center cursor-pointer hover:bg-slate-800/40 transition-colors" onclick="toggleAccordion('content-${so.id}', 'chev-${so.id}')">
+                                    <div class="flex items-center gap-4">
+                                        <span class="font-mono text-sm font-medium text-slate-200">${so.number}</span>
+                                        <span class="text-xs text-slate-400 bg-slate-800 border border-slate-700 px-2.5 py-1 rounded flex items-center gap-1.5 shadow-inner">
+                                            <svg class="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                            ${so.appt}
+                                        </span>
+                                        ${soOnHoldBtn}
+                                    </div>
+                                    <div class="flex items-center gap-4">
+                                        <div class="flex items-center gap-1.5 text-xs font-medium ${soAllocColor}">${soAllocIcon} <span class="hidden sm:inline">${soAllocText}</span></div>
+                                        <div id="chev-${so.id}" class="chevron scale-90">${ICON_CHEVRON}</div>
+                                    </div>
+                                </div>
+                                <div id="content-${so.id}" class="accordion-content bg-[#0b0f19]/60 border-t border-slate-800/30 shadow-inner">
+                                    <div class="accordion-inner">
+                                        <div class="px-4 sm:px-12 py-4">
+                                            <div class="hidden sm:grid grid-cols-12 gap-4 text-xs font-semibold text-slate-500 mb-3 border-b border-slate-800 pb-2 uppercase tracking-wider">
+                                                <div class="col-span-2">Item Number</div>
+                                                <div class="col-span-4">Description</div>
+                                                <div class="col-span-3 text-right">Lot Number</div>
+                                                <div class="col-span-2 text-right">Quantity</div>
+                                                <div class="col-span-1 text-center">Hold Status</div>
+                                            </div>
+                    `;
+
+                    so.lines.forEach(line => {
+                        const st = lineStatusUI(line.hms, line.hold_type, line.hold_msg);
+                        const tip = st.tip ? ` title="${st.tip.replace(/"/g,'&quot;')}"` : '';
+                        // For on-hold, show the hold type label alongside the icon; else just the icon
+                        const statusInner = st.holdLabel
+                            ? `<span class="text-rose-400 font-bold text-[10px] uppercase">${st.holdLabel}</span>${st.icon}`
+                            : st.icon;
+                        html += `
+                                            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-4 text-sm py-2.5 border-b border-slate-800/50 last:border-0 items-center hover:bg-slate-800/20 transition-colors rounded px-2 -mx-2">
+                                                <div class="col-span-1 sm:col-span-2 text-slate-300 font-mono text-xs font-medium"><span class="sm:hidden text-xs text-slate-500 mr-2 uppercase tracking-wide font-sans">Item:</span>${line.itemNumber}</div>
+                                                <div class="col-span-1 sm:col-span-4 text-slate-300 leading-tight">${line.description}</div>
+                                                <div class="col-span-1 sm:col-span-3 flex justify-between sm:block text-slate-400 font-mono sm:text-right"><span class="sm:hidden text-xs text-slate-500 uppercase tracking-wide font-sans">Lot Number:</span> <span class="min-w-0">${renderLots(line.lot)}</span></div>
+                                                <div class="col-span-1 sm:col-span-2 flex justify-between sm:block text-slate-400 sm:text-right font-medium"><span class="sm:hidden text-xs text-slate-500 uppercase tracking-wide font-sans">Quantity:</span> ${line.qty} cs</div>
+                                                <div class="col-span-1 flex justify-between sm:justify-center items-center mt-2 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-0 border-slate-800">
+                                                    <span class="sm:hidden text-xs text-slate-500 uppercase tracking-wide font-sans">Hold Check:</span> 
+                                                    <div class="hold-tip inline-flex items-center gap-1"${tip} role="img" aria-label="${st.label}">${statusInner}</div>
+                                                </div>
+                                            </div>
+                        `;
+                    });
+
+                    html += `
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                    `;
+                });
+
+                html += `
+                        </div>
+                    </div>
+                </div>
+                `;
+            });
+
+            if (!data || data.length === 0) {
+                html = `<div class="text-center py-12 text-slate-500 text-sm bg-slate-900 border border-slate-800 rounded-xl">No shipments scheduled for this view.</div>`;
+            }
+
+            // Diffing to preserve open states across time refreshes
+            const existingContents = container.querySelectorAll('.accordion-content.open');
+            const openIds = Array.from(existingContents).map(el => el.id);
+            container.innerHTML = html;
+            openIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) { el.classList.add('open'); const c = document.getElementById(id.replace('content-', 'chev-')); if (c) c.classList.add('open'); }
+            });
+        }
+
+        function toggleAccordion(contentId, chevronId) {
+            const content = document.getElementById(contentId);
+            const chevron = document.getElementById(chevronId);
+            if (content.classList.contains('open')) { content.classList.remove('open'); chevron.classList.remove('open'); }
+            else { content.classList.add('open'); chevron.classList.add('open'); }
+        }
+    </script>
+</body>
+</html>
