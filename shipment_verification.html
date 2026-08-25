@@ -297,6 +297,11 @@
             if (hms === 'not_allocated') {
                 return { icon: ICON_WARN, label: 'Not Allocated', color: 'text-amber-400', badge: 'bg-amber-500/10 border-amber-500/20 text-amber-400', tip: 'No lot assigned - not allocated yet', holdLabel: '' };
             }
+            if (hms === 'missing_wms') {
+                // SO is not in WMS yet (no appointment) — nothing to allocate or hold-check.
+                // Neutral non-issue: muted, no warning icon, no flag.
+                return { icon: '', label: 'Not in WMS', color: 'text-slate-600', badge: 'bg-slate-800/40 border-slate-700/60 text-slate-500', tip: 'SO not yet in WMS - nothing to allocate or hold-check', holdLabel: '' };
+            }
             return { icon: ICON_CHECK, label: 'Available', color: 'text-emerald-500', badge: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400', tip: 'Hold check passed', holdLabel: '' };
         }
 
@@ -317,7 +322,15 @@
                 let localTimeString = getLocalTimeForWarehouse(wh.tz);
 
                 wh.sos.forEach(so => {
-                    if (so.missing_from_wms) hasMissingWms = true;
+                    if (so.missing_from_wms) {
+                        // SO isn't in WMS yet (no appointment). There's nothing to allocate or
+                        // hold-check, so it's a NON-issue — it does NOT drive the allocation,
+                        // not-allocated, or hold flags. Only counts toward the yellow
+                        // "WMS Missing Appointment" badge.
+                        hasMissingWms = true;
+                        totalLots += so.lines.length;
+                        return;
+                    }
                     if (!so.allocated) allAllocated = false;
                     totalLots += so.lines.length;
                     so.lines.forEach(line => {
@@ -452,7 +465,11 @@
                     `;
 
                     so.lines.forEach(line => {
-                        const st = lineStatusUI(line.hms, line.hold_type, line.hold_msg);
+                        // If the SO is missing from WMS (not in the warehouse system), there is
+                        // nothing to allocate or hold-check — suppress the "no lot assigned" flag
+                        // so it shows as a neutral non-issue (no amber warning).
+                        const hms = (so.missing_from_wms && line.hms === 'not_allocated') ? 'missing_wms' : line.hms;
+                        const st = lineStatusUI(hms, line.hold_type, line.hold_msg);
                         const tip = st.tip ? ` title="${st.tip.replace(/"/g,'&quot;')}"` : '';
                         // For on-hold, show the hold type label alongside the icon; else just the icon
                         const statusInner = st.holdLabel
