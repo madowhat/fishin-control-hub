@@ -331,19 +331,30 @@
 
                 // Allocation badge:
                 //  - any lot ON HOLD -> CRITICAL red "Allocation Issue" (in addition to flashing ON HOLD button)
-                //  - unavailable / missing-from-WMS -> yellow "Allocation Issue" (not red)
+                //  - unavailable -> yellow "Allocation Issue" (not red)
                 //  - fully allocated (no issues) -> green "Allocated"
                 //  - genuinely not-allocated SOs present -> red "Allocation Issue"
+                //  - missing WMS appointment is a NON-issue for allocation/hold: shown as a
+                //    separate yellow "WMS Missing Appointment" badge, and the allocation badge
+                //    stays green "Allocated" + hold stays green "Hold Check Passed" (it normally
+                //    picks up an appointment the next day).
                 let allocBadgeHTML;
                 if (hasOnHold) {
                     allocBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold">${ICON_X} Allocation Issue</span>`;
-                } else if (hasUnavailable || hasMissingWms) {
+                } else if (hasUnavailable) {
                     allocBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">${ICON_WARN} Allocation Issue</span>`;
                 } else if (allAllocated) {
                     allocBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">${ICON_CHECK} Allocated</span>`;
                 } else {
                     allocBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold">${ICON_X} Allocation Issue</span>`;
                 }
+
+                // Separate yellow "WMS Missing Appointment" flag, shown to the LEFT of the
+                // allocation + hold badges when any SO in this warehouse is missing its WMS
+                // appointment (non-blocking — allocation & hold check are still considered complete).
+                const wmsMissingBadgeHTML = hasMissingWms
+                    ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">${ICON_WARN} WMS Missing Appointment</span>`
+                    : '';
 
                 // HMS badge: on_hold -> red; unavailable -> amber (unchanged); 
                 // not_allocated -> yellow "Hold Check Incomplete"; else green Hold Check Passed
@@ -372,7 +383,7 @@
                             </p>
                         </div>
                         <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                            <div class="flex items-center gap-2">${allocBadgeHTML}${hmsBadgeHTML}</div>
+                            <div class="flex items-center gap-2">${wmsMissingBadgeHTML}${allocBadgeHTML}${hmsBadgeHTML}</div>
                             <div id="chev-${wh.id}" class="chevron ml-2">${ICON_CHEVRON}</div>
                         </div>
                     </div>
