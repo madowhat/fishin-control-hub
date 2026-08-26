@@ -310,7 +310,8 @@
         // Map HMS status -> badge + icon (user rules)
         //   active         -> green check, "Available"
         //   on_hold        -> red X, "ON HOLD" + hold type/msg
-        //   unavailable    -> amber warn, "Unavailable" (lot in HMS but not active — needs NAV entry)
+        //   out_of_stock   -> amber warn, "Out of Stock" (lot in HMS but 0 qty / ran out)
+        //   not_found      -> amber warn, "Not Found" (lot absent from HMS entirely)
         //   not_allocated  -> amber warn, "Not Allocated" (no lot assigned — nothing to check in HMS)
         // Render the lot cell: a line can carry many lot numbers joined by "+".
         // Split them so each lot sits on its own line (instead of overflowing into
@@ -332,8 +333,16 @@
                 const holdLabel = ht ? ht.slice(0, 10) : 'ON HOLD';
                 return { icon: ICON_X, label: 'ON HOLD', color: 'text-rose-500', badge: 'bg-rose-500/10 border-rose-500/20 text-rose-400', tip: detail, holdLabel };
             }
+            if (hms === 'out_of_stock') {
+                return { icon: ICON_WARN, label: 'Out of Stock', color: 'text-amber-400', badge: 'bg-amber-500/10 border-amber-500/20 text-amber-400', tip: 'Out of stock in HMS (0 qty / ran out)', holdLabel: '' };
+            }
+            if (hms === 'not_found') {
+                return { icon: ICON_WARN, label: 'Not Found', color: 'text-amber-400', badge: 'bg-amber-500/10 border-amber-500/20 text-amber-400', tip: 'Lot not found in HMS', holdLabel: '' };
+            }
+            // Legacy: pre-split rows used a single ambiguous "unavailable". Treat it as a
+            // stock issue (not_found is indistinguishable for old data) until re-pushed.
             if (hms === 'unavailable') {
-                return { icon: ICON_WARN, label: 'Unavailable', color: 'text-amber-400', badge: 'bg-amber-500/10 border-amber-500/20 text-amber-400', tip: 'Unavailable in HMS - may need NAV entry', holdLabel: '' };
+                return { icon: ICON_WARN, label: 'Out of Stock', color: 'text-amber-400', badge: 'bg-amber-500/10 border-amber-500/20 text-amber-400', tip: 'HMS stock issue', holdLabel: '' };
             }
             if (hms === 'not_allocated') {
                 return { icon: ICON_WARN, label: 'Not Allocated', color: 'text-amber-400', badge: 'bg-amber-500/10 border-amber-500/20 text-amber-400', tip: 'No lot assigned - not allocated yet', holdLabel: '' };
@@ -360,7 +369,7 @@
                 let totalSOs = wh.sos.length;
                 let totalLots = 0;
                 let allAllocated = true;
-                let hasUnavailable = false;
+                let hasStockIssue = false;  // any line out-of-stock (0 qty) or lot-not-found in HMS
                 let hasNotAllocated = false;
                 let hasOnHold = false;  // any lot on hold in any SO at this warehouse
                 let hasMissingWms = false;  // any SO missing from WMS (no appointment)
@@ -382,10 +391,11 @@
                     if (!so.allocated) allAllocated = false;
                     totalLots += so.lines.length;
                     so.lines.forEach(line => {
+                        const isStockIssue = (line.hms === 'out_of_stock' || line.hms === 'not_found' || line.hms === 'unavailable');
                         if (line.hms === 'on_hold') { hmsOverall = 'on_hold'; hasOnHold = true; }
-                        else if (line.hms === 'unavailable' && hmsOverall !== 'on_hold') hmsOverall = 'unavailable';
-                        else if (line.hms === 'not_allocated' && hmsOverall === 'active') hmsOverall = 'not_allocated';
-                        if (line.hms === 'unavailable') hasUnavailable = true;
+                        else if (isStockIssue && hmsOverall !== 'on_hold') hmsOverall = 'incomplete';
+                        else if (line.hms === 'not_allocated' && hmsOverall === 'active') hmsOverall = 'incomplete';
+                        if (isStockIssue) hasStockIssue = true;
                         if (line.hms === 'not_allocated') hasNotAllocated = true;
                         if (line.qty_mismatch) hasQtyMismatch = true;
                         if (line.item_mismatch) hasItemMismatch = true;
@@ -394,7 +404,7 @@
 
                 // Allocation badge:
                 //  - any lot ON HOLD -> CRITICAL red "Allocation Issue" (in addition to flashing ON HOLD button)
-                //  - unavailable -> yellow "Allocation Issue" (not red)
+                //  - out-of-stock / not-found -> yellow "Allocation Issue" (not red)
                 //  - fully allocated (no issues) -> green "Allocated"
                 //  - genuinely not-allocated SOs present -> red "Allocation Issue"
                 //  - missing WMS appointment is a NON-issue for allocation/hold: shown as a
@@ -404,7 +414,7 @@
                 let allocBadgeHTML;
                 if (hasOnHold) {
                     allocBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold">${ICON_X} Allocation Issue</span>`;
-                } else if (hasUnavailable) {
+                } else if (hasStockIssue) {
                     allocBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">${ICON_WARN} Allocation Issue</span>`;
                 } else if (allAllocated) {
                     allocBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">${ICON_CHECK} Allocated</span>`;
@@ -426,18 +436,16 @@
                 const qtyMismatchBadgeHTML = hasQtyMismatch ? mismatchIconChip('qty') : '';
                 const itemMismatchBadgeHTML = hasItemMismatch ? mismatchIconChip('item') : '';
 
-                // HMS badge: on_hold -> red; unavailable -> amber (unchanged); 
-                // not_allocated -> yellow "Hold Check Incomplete"; else green Hold Check Passed
+                // HMS badge: on_hold -> red; anything not fully-checked (out-of-stock,
+                // not-found, not_allocated) -> yellow "Hold Check Incomplete"; else green.
                 let hmsBadgeHTML = '';
                 if (hmsOverall === 'active') {
                     hmsBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">${ICON_CHECK} Hold Check Passed</span>`;
                 } else if (hmsOverall === 'on_hold') {
                     // Critical: slowly flashing red button for the whole warehouse
                     hmsBadgeHTML = `<span class="hold-flash"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>ON HOLD</span>`;
-                } else if (hmsOverall === 'unavailable') {
-                    hmsBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">${ICON_WARN} Unavailable</span>`;
                 } else {
-                    // not_allocated (or any non-fully-checked)
+                    // out_of_stock / not_found / not_allocated (any non-fully-checked)
                     hmsBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">${ICON_WARN} Hold Check Incomplete</span>`;
                 }
 
@@ -462,8 +470,8 @@
                 `;
 
                 wh.sos.forEach(so => {
-                    // If any line in this SO is unavailable in HMS, treat as allocation issue (yellow)
-                    const soHasUnavailable = so.lines.some(l => l.hms === 'unavailable');
+                    // If any line in this SO is out-of-stock or not-found in HMS, treat as allocation issue (yellow)
+                    const soHasStockIssue = so.lines.some(l => l.hms === 'out_of_stock' || l.hms === 'not_found' || l.hms === 'unavailable');
                     // If any lot in this SO is ON HOLD, it's a CRITICAL allocation issue -> red flag + flashing button
                     const soHasOnHold = so.lines.some(l => l.hms === 'on_hold');
                     let soAllocIcon, soAllocText, soAllocColor;
@@ -475,7 +483,7 @@
                         soAllocIcon = ICON_WARN;
                         soAllocText = 'WMS missing appointment';
                         soAllocColor = 'text-amber-400';
-                    } else if (soHasUnavailable) {
+                    } else if (soHasStockIssue) {
                         soAllocIcon = ICON_WARN;
                         soAllocText = 'Allocation Issue';
                         soAllocColor = 'text-amber-400';
