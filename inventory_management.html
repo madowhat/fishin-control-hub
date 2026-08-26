@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Management | The Fishin' Company</title>
+
+    <!-- Tailwind -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        /* Custom Scrollbar for a polished dark theme look */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0b0f19; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+        /* Smooth Accordion Transitions */
+        .accordion-content { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.3s ease-in-out; }
+        .accordion-content.open { grid-template-rows: 1fr; }
+        .accordion-inner { overflow: hidden; }
+        .chevron { transition: transform 0.3s ease-in-out; }
+        .chevron.open { transform: rotate(180deg); }
+
+        /* Hold detail tooltip */
+        .hold-tip { cursor: help; border-bottom: 1px dotted currentColor; }
+
+        /* Slow red flashing for CRITICAL ship-risk */
+        @keyframes holdFlash {
+            0%, 100% { background-color: rgba(244, 63, 94, 0.15); border-color: rgba(244, 63, 94, 0.5); color: #fda4af; }
+            50% { background-color: rgba(244, 63, 94, 0.55); border-color: #f43f5e; color: #ffffff; }
+        }
+        .hold-flash {
+            animation: holdFlash 1.8s ease-in-out infinite;
+            border: 1px solid rgba(244, 63, 94, 0.5);
+            border-radius: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+        }
+
+        /* Subtle lift on category card hover */
+        .cat-card { transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
+        .cat-card:hover { box-shadow: 0 12px 32px -12px rgba(0,0,0,0.6); }
+    </style>
+</head>
+<body class="bg-[#0b0f19] text-slate-200 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- TOP MENU BAR (Fishin Logistics Hub) -->
+    <nav class="bg-slate-950 border-b border-slate-800 shrink-0">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-12">
+            <a href="index.html" class="flex items-center gap-2 text-sm text-slate-300 hover:text-white transition group">
+                <svg class="w-4 h-4 text-indigo-400 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                <span class="font-medium">Back to Fishin Logistics Hub</span>
+            </a>
+            <span class="text-xs text-slate-500 font-medium tracking-wide">Inventory Management Portal</span>
+        </div>
+    </nav>
+
+    <!-- MAIN APP CONTENT -->
+    <div id="app-content" class="flex-1 flex flex-col h-screen overflow-hidden">
+
+        <!-- HEADER -->
+        <header class="bg-slate-900 border-b border-slate-800 shrink-0">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-sm shadow-indigo-600/20">F</div>
+                        <div>
+                            <h1 class="text-lg font-semibold text-white leading-tight">Inventory Management Portal</h1>
+                            <p class="text-xs text-slate-400">Hold Status &amp; Availability across all warehouses</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-6">
+                        <div class="hidden sm:block text-sm text-slate-400">
+                            Operator: <span id="user-email-display" class="text-slate-200 font-medium">Not Verified</span>
+                        </div>
+                        <div class="text-xs text-slate-500">
+                            <span id="last-updated">—</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN DASHBOARD -->
+        <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+            <div class="max-w-7xl mx-auto">
+
+                <!-- SUMMARY STAT CARDS -->
+                <div id="summary-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+                    <!-- JS injects a stat card per category -->
+                </div>
+
+                <!-- CATEGORY / HOLD-SYNC DETAIL CONTAINER -->
+                <div id="dashboard-container" class="space-y-4 pb-20">
+                    <!-- JS will inject nested accordions here -->
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- Supabase config (anon key — safe for the browser; only SELECT is exposed) ---
+        const SUPABASE_URL = "https://xknhqscsusfuhodujajy.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhrbmhxc2NzdXNmdWhvZHVqYWp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NDU5MjMsImV4cCI6MjA5NTEyMTkyM30.IqQ_WeKRfg5EO2y8rbn7MAUT1vSMCS-6fIxC2M1oTGw";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // --- Icons ---
+        const ICON_CHECK = `<svg class="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>`;
+        const ICON_X = `<svg class="w-4 h-4 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>`;
+        const ICON_WARN = `<svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>`;
+        const ICON_CHEVRON = `<svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>`;
+        const ICON_BOX = `<svg class="w-4 h-4 text-indigo-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>`;
+
+        // --- Category metadata (order + colors) ---
+        const CATEGORY_ORDER = ['CRITICAL','MEDIUM','LOW','MISPLACED','SYNCED','NOT_IN_WMS','INFO','REVERSE'];
+        const CATEGORIES = {
+            CRITICAL:   { emoji:'🔴', label:'CRITICAL', sub:'Ship risk — could ship from under a hold',  dot:'bg-rose-500',   color:'text-rose-400',   chip:'bg-rose-500/10 border-rose-500/25 text-rose-400',   defaultOpen:true,  detail:true },
+            MEDIUM:     { emoji:'🟡', label:'MEDIUM',   sub:'HMS on-hold, but WMS shows it active',       dot:'bg-amber-400',   color:'text-amber-400',   chip:'bg-amber-500/10 border-amber-500/25 text-amber-400', defaultOpen:false, detail:true },
+            LOW:        { emoji:'🟢', label:'LOW',      sub:'WMS active, no HMS record (not top-5 oldest)',dot:'bg-emerald-500', color:'text-emerald-400', chip:'bg-emerald-500/10 border-emerald-500/25 text-emerald-400',defaultOpen:false, detail:true },
+            MISPLACED:  { emoji:'📌', label:'MISPLACED',sub:'WMS lot recorded at the wrong facility',      dot:'bg-indigo-500',  color:'text-indigo-400',  chip:'bg-indigo-500/10 border-indigo-500/25 text-indigo-400', defaultOpen:false, detail:true },
+            SYNCED:     { emoji:'✅', label:'SYNCED',   sub:'HMS and WMS agree — correctly held/active',   dot:'bg-emerald-500', color:'text-emerald-400', chip:'bg-emerald-500/10 border-emerald-500/25 text-emerald-400',defaultOpen:false, detail:false },
+            NOT_IN_WMS: { emoji:'🌊', label:'NOT IN WMS',sub:'New lot / on the water — not yet in WMS',    dot:'bg-sky-500',     color:'text-sky-400',     chip:'bg-sky-500/10 border-sky-500/25 text-sky-400',       defaultOpen:false, detail:false },
+            INFO:       { emoji:'ℹ️', label:'INFO',     sub:'Pallet-level holds / SPD3 auto-hold / zero-avail',dot:'bg-slate-500', color:'text-slate-400', chip:'bg-slate-500/10 border-slate-500/25 text-slate-400', defaultOpen:false, detail:false },
+            REVERSE:    { emoji:'🔄', label:'REVERSE',  sub:'WMS holds the lot, HMS does not',             dot:'bg-orange-400',  color:'text-orange-400',  chip:'bg-orange-500/10 border-orange-500/25 text-orange-400',defaultOpen:false, detail:false }
+        };
+
+        // Facility -> timezone (for the local-time display, same spirit as the shipment portal).
+        const FACILITY_TZ = {
+            'Mobile, AL':'America/Chicago','Baltimore, MD':'America/New_York',
+            'Burien - S 146th':'America/Los_Angeles','Elizabeth':'America/New_York',
+            'Portsmouth - Automated':'America/New_York','Seattle - Garfield':'America/Los_Angeles',
+            'Linden - Allen':'America/New_York','Chicago - S Wood':'America/Chicago',
+            'FreezPak Suffolk VA':'America/New_York','FreezPak Chicago':'America/Chicago'
+        };
+
+        let lastUpdateTs = 0;
+
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+        function fmtNum(n) {
+            if (n == null || n === '' ) return '?';
+            const f = Number(n);
+            if (!Number.isFinite(f)) return '?';
+            return f === Math.floor(f) ? String(f) : String(f);
+        }
+        function getLocalTimeForFacility(fac) {
+            const tz = FACILITY_TZ[fac] || 'America/New_York';
+            try {
+                return new Intl.DateTimeFormat('en-US', { timeZone: tz, hour:'2-digit', minute:'2-digit', timeZoneName:'short' }).format(new Date());
+            } catch (e) { return "—"; }
+        }
+
+        // --- Fetch from Supabase, group into nested shape, render ---
+        async function fetchData() {
+            // PostgREST caps a single select at 1000 rows; page through all rows
+            // so CRITICAL/MEDIUM lots (which may sort past the first page) aren't dropped.
+            const pageSize = 1000;
+            const all = [];
+            for (let from = 0; from < 10000; from += pageSize) {
+                const { data, error } = await supabaseClient
+                    .from('inventory_hold_sync')
+                    .select('*')
+                    .range(from, from + pageSize - 1);
+                if (error) { console.error('Supabase error:', error); return; }
+                all.push(...(data || []));
+                if ((data || []).length < pageSize) break;
+            }
+            const data = all;
+
+            // Only ever render the LATEST snapshot (collector stamps every row).
+            const stamps = data.map(r => new Date(r.last_updated_at).getTime()).filter(Boolean);
+            lastUpdateTs = stamps.length ? Math.max(...stamps) : Date.now();
+            const rows = data.filter(r => new Date(r.last_updated_at).getTime() === lastUpdateTs);
+
+            // Group: category -> facility -> item -> lots[]
+            const byCat = {};
+            rows.forEach(r => {
+                const cat = r.category || 'INFO';
+                if (!byCat[cat]) byCat[cat] = { facilities: {} };
+                if (!byCat[cat].facilities[r.facility]) byCat[cat].facilities[r.facility] = { items: {} };
+                if (!byCat[cat].facilities[r.facility].items[r.item_number]) byCat[cat].facilities[r.facility].items[r.item_number] = { name: r.item_name || '', lots: [] };
+                byCat[cat].facilities[r.facility].items[r.item_number].lots.push(r);
+            });
+
+            renderSummary(byCat, rows.length);
+            renderDashboard(byCat);
+            updateLastUpdated();
+        }
+
+        function renderSummary(byCat, totalRows) {
+            const grid = document.getElementById('summary-grid');
+            let html = '';
+            CATEGORY_ORDER.forEach(cat => {
+                const meta = CATEGORIES[cat];
+                const count = byCat[cat] ? Object.values(byCat[cat].facilities).reduce((a,f)=>a+Object.keys(f.items).length,0) : 0;
+                html += `
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col gap-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xl">${meta.emoji}</span>
+                        <span class="text-xs font-semibold ${meta.color}">${count}</span>
+                    </div>
+                    <div class="text-[11px] font-semibold text-slate-300 tracking-wide">${meta.label}</div>
+                    <div class="text-[10px] text-slate-500 leading-tight">${meta.sub}</div>
+                </div>`;
+            });
+            grid.innerHTML = html;
+        }
+
+        // Nested accordion for a detailed category: facility -> item -> lot rows.
+        function renderDetailCategory(cat, data, openIds) {
+            const meta = CATEGORIES[cat];
+            let html = '';
+
+            Object.keys(data.facilities).sort().forEach(fac => {
+                const facData = data.facilities[fac];
+                let facLots = 0, facOnhand = 0;
+                Object.values(facData.items).forEach(it => {
+                    facLots += it.lots.length;
+                    facOnhand += it.lots.reduce((s,l)=>s+(Number(l.on_hand)||0),0);
+                });
+                const facId = 'f-' + cat + '-' + fac.replace(/[^A-Za-z0-9]+/g,'-');
+                html += `
+                <div class="border-b border-slate-800/50 last:border-0">
+                    <div class="px-4 sm:px-8 py-3 flex justify-between items-center cursor-pointer hover:bg-slate-800/40 transition-colors" onclick="toggleAccordion('content-${facId}','chev-${facId}')">
+                        <div class="flex items-center gap-3">
+                            <span class="w-2 h-2 rounded-full ${meta.dot} shrink-0"></span>
+                            <span class="text-sm font-semibold text-white">${esc(fac)}</span>
+                            <span class="text-xs text-slate-500 font-normal">${getLocalTimeForFacility(fac)}</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs text-slate-500">${facLots} lots · ${fmtNum(facOnhand)} cs on hand</span>
+                            <div id="chev-${facId}" class="chevron scale-90">${ICON_CHEVRON}</div>
+                        </div>
+                    </div>
+                    <div id="content-${facId}" class="accordion-content border-t border-slate-800/30 bg-[#0b0f19]/40">
+                        <div class="accordion-inner">
+                `;
+
+                Object.keys(facData.items).sort().forEach(itemNo => {
+                    const it = facData.items[itemNo];
+                    const itOnhand = it.lots.reduce((s,l)=>s+(Number(l.on_hand)||0),0);
+                    const itemId = facId + '-' + itemNo.replace(/[^A-Za-z0-9]+/g,'-');
+                    html += `
+                    <div class="border-b border-slate-800/30 last:border-0">
+                        <div class="px-4 sm:px-12 py-2.5 flex justify-between items-center cursor-pointer hover:bg-slate-800/30 transition-colors" onclick="toggleAccordion('content-${itemId}','chev-${itemId}')">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <span class="text-slate-400">${ICON_BOX}</span>
+                                <span class="font-mono text-xs font-semibold text-slate-200">${esc(itemNo)}</span>
+                                <span class="text-sm text-slate-400 truncate">${esc(it.name)}</span>
+                            </div>
+                            <div class="flex items-center gap-3 shrink-0">
+                                <span class="text-xs text-slate-500">${it.lots.length} lots · ${fmtNum(itOnhand)} cs</span>
+                                <div id="chev-${itemId}" class="chevron scale-75">${ICON_CHEVRON}</div>
+                            </div>
+                        </div>
+                        <div id="content-${itemId}" class="accordion-content">
+                            <div class="accordion-inner">
+                                <div class="px-4 sm:px-16 py-4">
+                                    <div class="hidden sm:grid grid-cols-12 gap-4 text-xs font-semibold text-slate-500 mb-3 border-b border-slate-800 pb-2 uppercase tracking-wider">
+                                        <div class="col-span-3">Lot</div>
+                                        <div class="col-span-2">PO</div>
+                                        <div class="col-span-2 text-right">On Hand</div>
+                                        <div class="col-span-2 text-right">Age</div>
+                                        <div class="col-span-3">Hold / Note</div>
+                                    </div>
+                    `;
+                    it.lots.forEach(l => {
+                        const age = (l.age_rank != null && l.age_total != null) ? `${fmtNum(l.age_rank)}/${fmtNum(l.age_total)}` : '—';
+                        const isCritical = cat === 'CRITICAL';
+                        const holdTxt = esc(l.hold_desc || '');
+                        html += `
+                                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-4 text-sm py-2.5 border-b border-slate-800/50 last:border-0 items-center hover:bg-slate-800/20 transition-colors rounded px-2 -mx-2">
+                                        <div class="col-span-1 sm:col-span-3 font-mono text-xs font-medium ${isCritical?'text-rose-300':'text-slate-200'}">${esc(l.lot)}</div>
+                                        <div class="col-span-1 sm:col-span-2 text-slate-400 font-mono text-xs">${esc(l.po) || '—'}</div>
+                                        <div class="col-span-1 sm:col-span-2 flex justify-between sm:block sm:text-right font-medium ${isCritical?'text-rose-300':'text-slate-300'}">${fmtNum(l.on_hand)}</div>
+                                        <div class="col-span-1 sm:col-span-2 flex justify-between sm:block sm:text-right text-slate-400">${age}</div>
+                                        <div class="col-span-1 sm:col-span-3 hold-tip text-xs ${isCritical?'text-rose-300/90':'text-slate-400'}">${holdTxt || 'none'}</div>
+                                    </div>
+                        `;
+                    });
+                    html += `
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    `;
+                });
+
+                html += `</div></div></div>`;
+            });
+            return html;
+        }
+
+        // Lightweight collapsible for summary-only categories (facility -> count).
+        function renderSummaryCategory(cat, data, openIds) {
+            const meta = CATEGORIES[cat];
+            let html = '';
+            Object.keys(data.facilities).sort().forEach(fac => {
+                const facData = data.facilities[fac];
+                let lots = 0;
+                Object.values(facData.items).forEach(it => lots += it.lots.length);
+                const facId = 's-' + cat + '-' + fac.replace(/[^A-Za-z0-9]+/g,'-');
+                html += `
+                <div class="border-b border-slate-800/50 last:border-0">
+                    <div class="px-4 sm:px-8 py-2.5 flex justify-between items-center cursor-pointer hover:bg-slate-800/30 transition-colors" onclick="toggleAccordion('content-${facId}','chev-${facId}')">
+                        <div class="flex items-center gap-3">
+                            <span class="w-2 h-2 rounded-full ${meta.dot} shrink-0"></span>
+                            <span class="text-sm text-slate-300">${esc(fac)}</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs text-slate-500">${lots} lots</span>
+                            <div id="chev-${facId}" class="chevron scale-90">${ICON_CHEVRON}</div>
+                        </div>
+                    </div>
+                    <div id="content-${facId}" class="accordion-content"><div class="accordion-inner">
+                        <div class="px-4 sm:px-12 py-2 text-xs text-slate-500">${lots} lot${lots===1?'':'s'} in this facility.</div>
+                    </div></div>
+                </div>`;
+            });
+            return html;
+        }
+
+        function renderDashboard(byCat) {
+            const container = document.getElementById('dashboard-container');
+            const existingContents = container.querySelectorAll('.accordion-content.open');
+            const openIds = Array.from(existingContents).map(el => el.id);
+            let html = '';
+
+            CATEGORY_ORDER.forEach(cat => {
+                const data = byCat[cat];
+                const meta = CATEGORIES[cat];
+                if (!data) return;
+                const totalLots = Object.values(data.facilities).reduce((a,f)=>a+Object.values(f.items).reduce((x,it)=>x+it.lots.length,0),0);
+                const catId = 'cat-' + cat;
+
+                html += `
+                <div class="cat-card bg-slate-900 border border-slate-800 rounded-xl shadow-2xl overflow-hidden">
+                    <div class="p-4 sm:px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-pointer hover:bg-slate-800/50 transition-colors" onclick="toggleAccordion('content-${catId}','chev-${catId}')">
+                        <div class="flex items-center gap-3">
+                            <span class="text-xl">${meta.emoji}</span>
+                            <div>
+                                <h3 class="text-base font-semibold ${meta.color} tracking-wide">${meta.label} <span class="text-slate-400 font-normal">· ${totalLots} lots</span></h3>
+                                <p class="text-xs text-slate-400 mt-0.5">${meta.sub}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md ${meta.chip} text-xs font-semibold">${totalLots} lots</span>
+                            <div id="chev-${catId}" class="chevron ml-2">${ICON_CHEVRON}</div>
+                        </div>
+                    </div>
+                    <div id="content-${catId}" class="accordion-content border-t border-slate-800/50">
+                        <div class="accordion-inner bg-slate-900/30">
+                `;
+                html += meta.detail
+                    ? renderDetailCategory(cat, data, openIds)
+                    : renderSummaryCategory(cat, data, openIds);
+                html += `</div></div></div>`;
+            });
+
+            if (!html) {
+                html = `<div class="text-center py-12 text-slate-500 text-sm bg-slate-900 border border-slate-800 rounded-xl">No inventory data yet. Run the hold-sync pusher to populate this portal.</div>`;
+            }
+
+            container.innerHTML = html;
+            // Preserve open states across refreshes
+            openIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) { el.classList.add('open'); const c = document.getElementById(id.replace('content-','chev-')); if (c) c.classList.add('open'); }
+            });
+            // Default-open categories (CRITICAL)
+            CATEGORY_ORDER.forEach(cat => {
+                if (CATEGORIES[cat].defaultOpen && byCat[cat]) {
+                    const el = document.getElementById('content-cat-' + cat);
+                    const c = document.getElementById('chev-cat-' + cat);
+                    if (el && !el.classList.contains('open')) { el.classList.add('open'); if (c) c.classList.add('open'); }
+                }
+            });
+        }
+
+        function toggleAccordion(contentId, chevronId) {
+            const content = document.getElementById(contentId);
+            const chevron = document.getElementById(chevronId);
+            if (content.classList.contains('open')) { content.classList.remove('open'); chevron.classList.remove('open'); }
+            else { content.classList.add('open'); chevron.classList.add('open'); }
+        }
+
+        // "Updated hh:mm:ss ago" live ticker
+        function updateLastUpdated() {
+            const el = document.getElementById('last-updated');
+            if (!el) return;
+            const diff = Math.max(0, Date.now() - lastUpdateTs);
+            const s = Math.floor(diff/1000);
+            const hh = String(Math.floor(s/3600)).padStart(2,'0');
+            const mm = String(Math.floor((s%3600)/60)).padStart(2,'0');
+            const ss = String(s%60).padStart(2,'0');
+            el.innerText = 'Updated ' + hh + ':' + mm + ':' + ss + ' ago';
+        }
+
+        window.onload = async () => {
+            // Login happens once at the Fishin Logistics Hub — redirect there if no valid session.
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!(session && session.user && session.user.email.endsWith("@fishinco.com"))) {
+                window.location.href = 'index.html';
+                return;
+            }
+            document.getElementById('user-email-display').innerText = session.user.email;
+            fetchData();
+            setInterval(() => { fetchData(); }, 60000);
+            setInterval(() => { updateLastUpdated(); }, 1000);
+        };
+    </script>
+</body>
+</html>
