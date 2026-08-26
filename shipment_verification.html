@@ -161,12 +161,22 @@
         };
         let updateTimer;
 
+        // Format a Date as a YYYY-MM-DD string in LOCAL time. (Do NOT use toISOString(),
+        // which returns UTC and can shift "today" to the next day in the evening for
+        // Central time — causing tomorrow's SOs to vanish / appear as today.)
+        const localDateStr = d => {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        };
+
         // Fetch today's + tomorrow's rows from outbound_clearance, group into dashboard shape
         async function fetchData() {
             const today = new Date();
             const tomorrow = new Date(today);
             tomorrow.setDate(tomorrow.getDate() + 1);
-            const fmt = d => d.toISOString().split('T')[0];
+            const fmt = localDateStr;
             const dates = [fmt(today), fmt(tomorrow)];
 
             const { data, error } = await supabaseClient
