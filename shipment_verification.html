@@ -116,6 +116,35 @@
         const ICON_WARN = `<svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>`;
         const ICON_CHEVRON = `<svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>`;
 
+        // --- Mismatch flag icons/chips ---
+        // Qty mismatch icon (two-way arrow / scale) — yellow.
+        const ICON_QTY = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>`;
+        // Item mismatch icon (two boxes / swap) — yellow.
+        const ICON_ITEM = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>`;
+
+        // Warehouse-level icon chip for a mismatch type (icon only, tooltip).
+        function mismatchIconChip(type) {
+            if (type === 'qty') {
+                return `<span class="inline-flex items-center justify-center w-7 h-7 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0" title="Qty Mismatch — NAV qty differs from WMS">${ICON_QTY}</span>`;
+            }
+            if (type === 'item') {
+                return `<span class="inline-flex items-center justify-center w-7 h-7 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0" title="Item Mismatch — item differs between NAV and WMS">${ICON_ITEM}</span>`;
+            }
+            return '';
+        }
+
+        // Small yellow text chip for a mismatch on a line (only rendered when `on` is true).
+        function mismatchLineChip(type, on) {
+            if (!on) return '';
+            if (type === 'qty') {
+                return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10px] font-semibold whitespace-nowrap">${ICON_QTY} Qty Mismatch</span>`;
+            }
+            if (type === 'item') {
+                return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10px] font-semibold whitespace-nowrap">${ICON_ITEM} Item Mismatch</span>`;
+            }
+            return '';
+        }
+
         // --- LIVE DATA (from Supabase) ---
         let dashboardData = { today: [], tomorrow: [] };
         let currentTab = 'today';
@@ -177,7 +206,9 @@
                             qty: ln.qty != null ? String(ln.qty) : '',
                             hms: ln.hms || 'unavailable',
                             hold_type: ln.hold_type || '',
-                            hold_msg: ln.hold_msg || ''
+                            hold_msg: ln.hold_msg || '',
+                            qty_mismatch: !!ln.qty_mismatch,
+                            item_mismatch: !!ln.item_mismatch
                         });
                     });
                 });
@@ -318,6 +349,8 @@
                 let hasNotAllocated = false;
                 let hasOnHold = false;  // any lot on hold in any SO at this warehouse
                 let hasMissingWms = false;  // any SO missing from WMS (no appointment)
+                let hasQtyMismatch = false;  // any line with a qty mismatch (NAV vs WMS)
+                let hasItemMismatch = false;  // any line with an item mismatch
                 let hmsOverall = 'active'; // worst of the lines
                 let localTimeString = getLocalTimeForWarehouse(wh.tz);
 
@@ -339,6 +372,8 @@
                         else if (line.hms === 'not_allocated' && hmsOverall === 'active') hmsOverall = 'not_allocated';
                         if (line.hms === 'unavailable') hasUnavailable = true;
                         if (line.hms === 'not_allocated') hasNotAllocated = true;
+                        if (line.qty_mismatch) hasQtyMismatch = true;
+                        if (line.item_mismatch) hasItemMismatch = true;
                     });
                 });
 
@@ -370,6 +405,12 @@
                     ? `<span class="inline-flex items-center justify-center w-7 h-7 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0" title="WMS Missing Appointment — some SO(s) not yet in WMS"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg></span>`
                     : '';
 
+                // Separate yellow icon chips for qty + item mismatches (icon only, tooltip).
+                // Order: qty, item, then wms-missing — so with a missing appointment there are
+                // three yellow icons (qty, item, appointment).
+                const qtyMismatchBadgeHTML = hasQtyMismatch ? mismatchIconChip('qty') : '';
+                const itemMismatchBadgeHTML = hasItemMismatch ? mismatchIconChip('item') : '';
+
                 // HMS badge: on_hold -> red; unavailable -> amber (unchanged); 
                 // not_allocated -> yellow "Hold Check Incomplete"; else green Hold Check Passed
                 let hmsBadgeHTML = '';
@@ -397,7 +438,7 @@
                             </p>
                         </div>
                         <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                            <div class="flex items-center gap-2">${wmsMissingBadgeHTML}${allocBadgeHTML}${hmsBadgeHTML}</div>
+                            <div class="flex items-center gap-2">${qtyMismatchBadgeHTML}${itemMismatchBadgeHTML}${wmsMissingBadgeHTML}${allocBadgeHTML}${hmsBadgeHTML}</div>
                             <div id="chev-${wh.id}" class="chevron ml-2">${ICON_CHEVRON}</div>
                         </div>
                     </div>
@@ -436,6 +477,11 @@
                     const soOnHoldBtn = soHasOnHold
                         ? `<span class="hold-flash"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>ON HOLD</span>`
                         : '';
+                    // Compact yellow "Mismatch" indicator if any line in this SO has a qty or item mismatch.
+                    const soHasMismatch = so.lines.some(l => l.qty_mismatch || l.item_mismatch);
+                    const soMismatchBadge = soHasMismatch
+                        ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10px] font-semibold whitespace-nowrap" title="Qty/Item mismatch between NAV and WMS">${ICON_QTY} Mismatch</span>`
+                        : '';
 
                     html += `
                             <div class="border-b border-slate-800/50 last:border-0">
@@ -450,6 +496,7 @@
                                     </div>
                                     <div class="flex items-center gap-4">
                                         <div class="flex items-center gap-1.5 text-xs font-medium ${soAllocColor}">${soAllocIcon} <span class="hidden sm:inline">${soAllocText}</span></div>
+                                        ${soMismatchBadge}
                                         <div id="chev-${so.id}" class="chevron scale-90">${ICON_CHEVRON}</div>
                                     </div>
                                 </div>
@@ -484,7 +531,10 @@
                                                 <div class="col-span-1 sm:col-span-2 flex justify-between sm:block text-slate-400 sm:text-right font-medium"><span class="sm:hidden text-xs text-slate-500 uppercase tracking-wide font-sans">Quantity:</span> ${line.qty} cs</div>
                                                 <div class="col-span-1 flex justify-between sm:justify-center items-center mt-2 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-0 border-slate-800">
                                                     <span class="sm:hidden text-xs text-slate-500 uppercase tracking-wide font-sans">Hold Check:</span> 
-                                                    <div class="hold-tip inline-flex items-center gap-1"${tip} role="img" aria-label="${st.label}">${statusInner}</div>
+                                                    <div class="flex flex-col sm:items-center gap-1">
+                                                        <div class="hold-tip inline-flex items-center gap-1"${tip} role="img" aria-label="${st.label}">${statusInner}</div>
+                                                        <div class="flex flex-col gap-1">${mismatchLineChip('qty', line.qty_mismatch)}${mismatchLineChip('item', line.item_mismatch)}</div>
+                                                    </div>
                                                 </div>
                                             </div>
                         `;
