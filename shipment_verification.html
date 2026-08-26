@@ -9,6 +9,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- SheetJS (xlsx export) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <style>
         /* Custom Scrollbar for a polished dark theme look */
@@ -89,10 +91,16 @@
         <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
             <div class="max-w-7xl mx-auto">
                 
-                <!-- TABS (Dates are injected via JS) -->
-                <div class="flex gap-2 mb-6 border-b border-slate-800 pb-4">
-                    <button id="tab-today" onclick="switchTab('today')" class="tab-btn active-tab px-5 py-2 text-sm font-medium rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 transition-all">Loading...</button>
-                    <button id="tab-tomorrow" onclick="switchTab('tomorrow')" class="tab-btn px-5 py-2 text-sm font-medium rounded-full bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-all">Loading...</button>
+                <!-- TABS (Dates are injected via JS) + Export -->
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-6 border-b border-slate-800 pb-4">
+                    <div class="flex gap-2">
+                        <button id="tab-today" onclick="switchTab('today')" class="tab-btn active-tab px-5 py-2 text-sm font-medium rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 transition-all">Loading...</button>
+                        <button id="tab-tomorrow" onclick="switchTab('tomorrow')" class="tab-btn px-5 py-2 text-sm font-medium rounded-full bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-all">Loading...</button>
+                    </div>
+                    <button onclick="exportToExcel()" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-slate-800 text-slate-200 border border-slate-700 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Export to xlsx
+                    </button>
                 </div>
 
                 <!-- DASHBOARD LIST CONTAINER -->
@@ -360,6 +368,51 @@
             return { icon: ICON_CHECK, label: 'Available', color: 'text-emerald-500', badge: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400', tip: 'Hold check passed', holdLabel: '' };
         }
 
+        // Export today's + tomorrow's lines to a flat .xlsx — one row per LOT.
+        // Columns: facility, ship date, SO#, item number, item description, lot, qty, hold status.
+        function exportToExcel() {
+            if (typeof XLSX === 'undefined') { alert('Export library not loaded. Please refresh the page.'); return; }
+            const today = new Date();
+            const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+            const days = [
+                { data: dashboardData.today, date: localDateStr(today) },
+                { data: dashboardData.tomorrow, date: localDateStr(tomorrow) }
+            ];
+            const rows = [];
+            days.forEach(({ data, date }) => {
+                (data || []).forEach(wh => {
+                    (wh.sos || []).forEach(so => {
+                        (so.lines || []).forEach(line => {
+                            // Same missing-from-WMS remap the dashboard uses, so the hold
+                            // status text matches what's shown on screen.
+                            const hms = (so.missing_from_wms && line.hms === 'not_allocated') ? 'missing_wms' : line.hms;
+                            const tip = lineStatusUI(hms, line.hold_type, line.hold_msg).tip;
+                            const lots = String(line.lot || '').split('+').map(s => s.trim()).filter(Boolean);
+                            const lotList = lots.length ? lots : [''];   // a line with no lot still exports one row
+                            lotList.forEach(lot => {
+                                rows.push({
+                                    'Facility': wh.name,
+                                    'Ship Date': date,
+                                    'SO #': so.number,
+                                    'Item Number': line.itemNumber,
+                                    'Item Description': line.description,
+                                    'Lot Number': lot,
+                                    'Qty': line.qty,
+                                    'Hold Status': tip
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+            if (!rows.length) { alert('No data to export yet.'); return; }
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws['!cols'] = [{wch:22},{wch:12},{wch:10},{wch:14},{wch:40},{wch:24},{wch:8},{wch:48}];
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Shipments');
+            XLSX.writeFile(wb, 'Shipment_Verification_' + localDateStr(today) + '.xlsx');
+        }
+
         function renderDashboard(tab) {
             const container = document.getElementById('dashboard-container');
             const data = dashboardData[tab];
@@ -369,7 +422,6 @@
                 let totalSOs = wh.sos.length;
                 let totalLots = 0;
                 let allAllocated = true;
-                let hasStockIssue = false;  // any line out-of-stock (0 qty) or lot-not-found in HMS
                 let hasNotAllocated = false;
                 let hasOnHold = false;  // any lot on hold in any SO at this warehouse
                 let hasMissingWms = false;  // any SO missing from WMS (no appointment)
@@ -395,7 +447,6 @@
                         if (line.hms === 'on_hold') { hmsOverall = 'on_hold'; hasOnHold = true; }
                         else if (isStockIssue && hmsOverall !== 'on_hold') hmsOverall = 'incomplete';
                         else if (line.hms === 'not_allocated' && hmsOverall === 'active') hmsOverall = 'incomplete';
-                        if (isStockIssue) hasStockIssue = true;
                         if (line.hms === 'not_allocated') hasNotAllocated = true;
                         if (line.qty_mismatch) hasQtyMismatch = true;
                         if (line.item_mismatch) hasItemMismatch = true;
@@ -404,9 +455,10 @@
 
                 // Allocation badge:
                 //  - any lot ON HOLD -> CRITICAL red "Allocation Issue" (in addition to flashing ON HOLD button)
-                //  - out-of-stock / not-found -> yellow "Allocation Issue" (not red)
                 //  - fully allocated (no issues) -> green "Allocated"
                 //  - genuinely not-allocated SOs present -> red "Allocation Issue"
+                //  - out-of-stock / not-found is NOT an allocation issue (the item allocated
+                //    fine) — it shows only as the yellow "Hold Check Incomplete" HMS badge.
                 //  - missing WMS appointment is a NON-issue for allocation/hold: shown as a
                 //    separate yellow "WMS Missing Appointment" badge, and the allocation badge
                 //    stays green "Allocated" + hold stays green "Hold Check Passed" (it normally
@@ -414,8 +466,6 @@
                 let allocBadgeHTML;
                 if (hasOnHold) {
                     allocBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold">${ICON_X} Allocation Issue</span>`;
-                } else if (hasStockIssue) {
-                    allocBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">${ICON_WARN} Allocation Issue</span>`;
                 } else if (allAllocated) {
                     allocBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">${ICON_CHECK} Allocated</span>`;
                 } else {
@@ -470,7 +520,8 @@
                 `;
 
                 wh.sos.forEach(so => {
-                    // If any line in this SO is out-of-stock or not-found in HMS, treat as allocation issue (yellow)
+                    // If any line in this SO is out-of-stock or not-found in HMS, the item
+                    // allocated fine but its hold check didn't pass -> yellow "Hold Check Issue".
                     const soHasStockIssue = so.lines.some(l => l.hms === 'out_of_stock' || l.hms === 'not_found' || l.hms === 'unavailable');
                     // If any lot in this SO is ON HOLD, it's a CRITICAL allocation issue -> red flag + flashing button
                     const soHasOnHold = so.lines.some(l => l.hms === 'on_hold');
@@ -485,7 +536,7 @@
                         soAllocColor = 'text-amber-400';
                     } else if (soHasStockIssue) {
                         soAllocIcon = ICON_WARN;
-                        soAllocText = 'Allocation Issue';
+                        soAllocText = 'Hold Check Issue';
                         soAllocColor = 'text-amber-400';
                     } else if (so.allocated) {
                         soAllocIcon = ICON_CHECK;
