@@ -179,7 +179,21 @@
             return `${y}-${m}-${day}`;
         };
 
-        // Fetch today's + tomorrow's rows from outbound_clearance, group into dashboard shape
+        // Color-coded status flag (Turvo order status; 'WMS Only' = in WMS but absent from NAV).
+        function statusFlag(status) {
+            if (!status) return '';
+            const colors = {
+                'Closed': 'bg-slate-500/20 text-slate-300 border-slate-500/50',
+                'Committed': 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50',
+                'Scheduled': 'bg-sky-500/20 text-sky-300 border-sky-500/50',
+                'Loaded': 'bg-purple-500/20 text-purple-300 border-purple-500/50',
+                'WMS Only': 'bg-amber-500/20 text-amber-300 border-amber-500/50',
+            };
+            const cls = colors[status] || 'bg-slate-500/20 text-slate-300 border-slate-500/50';
+            return `<span class="inline-block text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${cls}" title="${status === 'WMS Only' ? 'In WMS but absent from NAV' : ''}">${status}</span>`;
+        }
+
+        // Fetch today's + tomorrow's rows from shipment_verification, group into dashboard shape
         async function fetchData() {
             const today = new Date();
             const tomorrow = new Date(today);
@@ -188,7 +202,7 @@
             const dates = [fmt(today), fmt(tomorrow)];
 
             const { data, error } = await supabaseClient
-                .from('outbound_clearance')
+                .from('shipment_verification')
                 .select('*')
                 .in('ship_date', dates)
                 .order('ship_date', { ascending: true });
@@ -212,7 +226,7 @@
                     let so = whMap[wh].sos.find(s => s.number === soId);
                     if (!so) {
                         // An SO with no appointment time is missing from WMS (present in NAV only)
-                        so = { id: 'so-' + soId, number: soId, appt: row.appt_time || '', allocated: !!row.allocated, missing_from_wms: !(row.appt_time && String(row.appt_time).trim()), lines: [] };
+                        so = { id: 'so-' + soId, number: soId, appt: row.appt_time || '', allocated: !!row.allocated, missing_from_wms: !(row.appt_time && String(row.appt_time).trim()), status: row.status || '', lines: [] };
                         whMap[wh].sos.push(so);
                     }
                     // lines from lines_json
@@ -566,6 +580,7 @@
                                             <svg class="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                             ${so.appt}
                                         </span>
+                                        ${statusFlag(so.status)}
                                         ${soOnHoldBtn}
                                     </div>
                                     <div class="flex items-center gap-4">
