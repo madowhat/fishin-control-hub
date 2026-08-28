@@ -485,7 +485,9 @@
                     if (!so.allocated) allAllocated = false;
                     totalLots += so.lines.length;
                     so.lines.forEach(line => {
-                        const isStockIssue = (line.hms === 'out_of_stock' || line.hms === 'not_found' || line.hms === 'unavailable');
+                        // out_of_stock is a LINE-ITEM-only flag (the item allocated fine, just
+                        // ran out in HMS) — it does NOT escalate to the warehouse/SO level.
+                        const isStockIssue = (line.hms === 'not_found');
                         if (line.hms === 'on_hold') { hmsOverall = 'on_hold'; hasOnHold = true; }
                         else if (isStockIssue && hmsOverall !== 'on_hold') hmsOverall = 'incomplete';
                         else if (line.hms === 'not_allocated' && hmsOverall === 'active') hmsOverall = 'incomplete';
@@ -537,7 +539,7 @@
                     // Critical: slowly flashing red button for the whole warehouse
                     hmsBadgeHTML = `<span class="hold-flash"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>ON HOLD</span>`;
                 } else {
-                    // out_of_stock / not_found / not_allocated (any non-fully-checked)
+                    // not_found / not_allocated (any non-fully-checked, excluding line-only out_of_stock)
                     hmsBadgeHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">${ICON_WARN} Hold Check Incomplete</span>`;
                 }
 
@@ -562,9 +564,9 @@
                 `;
 
                 wh.sos.forEach(so => {
-                    // If any line in this SO is out-of-stock or not-found in HMS, the item
-                    // allocated fine but its hold check didn't pass -> yellow "Hold Check Issue".
-                    const soHasStockIssue = so.lines.some(l => l.hms === 'out_of_stock' || l.hms === 'not_found' || l.hms === 'unavailable');
+                    // out_of_stock is line-item-only: it does NOT escalate to an SO-level
+                    // "Hold Check Issue" (only not_found does).
+                    const soHasStockIssue = so.lines.some(l => l.hms === 'not_found');
                     // If any lot in this SO is ON HOLD, it's a CRITICAL allocation issue -> red flag + flashing button
                     const soHasOnHold = so.lines.some(l => l.hms === 'on_hold');
                     let soAllocIcon, soAllocText, soAllocColor;
