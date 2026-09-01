@@ -122,12 +122,12 @@
         // --- Category metadata (order + colors) ---
         const CATEGORY_ORDER = ['CRITICAL','MEDIUM','LOW','MISPLACED','NOT_IN_WMS','INFO','REVERSE'];
         const CATEGORIES = {
-            CRITICAL:   { emoji:'🔴', label:'CRITICAL', sub:'Ship risk — could ship from under a hold',  dot:'bg-rose-500',   color:'text-rose-400',   chip:'bg-rose-500/10 border-rose-500/25 text-rose-400',   defaultOpen:true },
-            MEDIUM:     { emoji:'🟡', label:'MEDIUM',   sub:'HMS on-hold, but WMS shows it active',       dot:'bg-amber-400',   color:'text-amber-400',   chip:'bg-amber-500/10 border-amber-500/25 text-amber-400', defaultOpen:false },
-            LOW:        { emoji:'🟢', label:'LOW',      sub:'WMS active, no HMS record (not top-5 oldest)',dot:'bg-emerald-500', color:'text-emerald-400', chip:'bg-emerald-500/10 border-emerald-500/25 text-emerald-400',defaultOpen:false },
+            CRITICAL:   { emoji:'🔴', label:'CRITICAL', sub:'Top-5 oldest lots at ship risk (could ship from under a hold)',  dot:'bg-rose-500',   color:'text-rose-400',   chip:'bg-rose-500/10 border-rose-500/25 text-rose-400',   defaultOpen:true },
+            MEDIUM:     { emoji:'🟡', label:'MEDIUM',   sub:'Hold mismatch — HMS & WMS disagree (on-hold in one, active in the other)',       dot:'bg-amber-400',   color:'text-amber-400',   chip:'bg-amber-500/10 border-amber-500/25 text-amber-400', defaultOpen:false },
+            LOW:        { emoji:'🟢', label:'LOW',      sub:'WMS active, HMS has no record or shows ran out',dot:'bg-emerald-500', color:'text-emerald-400', chip:'bg-emerald-500/10 border-emerald-500/25 text-emerald-400',defaultOpen:false },
             MISPLACED:  { emoji:'📌', label:'MISPLACED',sub:'WMS lot recorded at the wrong facility',      dot:'bg-indigo-500',  color:'text-indigo-400',  chip:'bg-indigo-500/10 border-indigo-500/25 text-indigo-400', defaultOpen:false },
-            NOT_IN_WMS: { emoji:'🌊', label:'NOT IN WMS',sub:'New lot / on the water — not yet in WMS',    dot:'bg-sky-500',     color:'text-sky-400',     chip:'bg-sky-500/10 border-sky-500/25 text-sky-400',       defaultOpen:false },
-            INFO:       { emoji:'ℹ️', label:'INFO',     sub:'Pallet-level holds / SPD3 auto-hold / zero-avail',dot:'bg-slate-500', color:'text-slate-400', chip:'bg-slate-500/10 border-slate-500/25 text-slate-400', defaultOpen:false },
+            NOT_IN_WMS: { emoji:'📉', label:'NOT IN WMS',sub:'In HMS but ran out in WMS — HMS not updated (mismatch)',    dot:'bg-sky-500',     color:'text-sky-400',     chip:'bg-sky-500/10 border-sky-500/25 text-sky-400',       defaultOpen:false },
+            INFO:       { emoji:'ℹ️', label:'INFO',     sub:'Pallet-level holds / SPD3 / qty-hold / zero-avail (info only)',dot:'bg-slate-500', color:'text-slate-400', chip:'bg-slate-500/10 border-slate-500/25 text-slate-400', defaultOpen:false },
             REVERSE:    { emoji:'🔄', label:'REVERSE',  sub:'WMS holds the lot, HMS does not',             dot:'bg-orange-400',  color:'text-orange-400',  chip:'bg-orange-500/10 border-orange-500/25 text-orange-400',defaultOpen:false }
         };
 
