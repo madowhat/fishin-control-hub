@@ -87,6 +87,17 @@
             </div>
         </header>
 
+        <!-- MAINTENANCE BANNER (remove when migration is complete) -->
+        <div class="bg-amber-500/10 border-b border-amber-500/30 shrink-0">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center gap-3">
+                <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                <p class="text-xs sm:text-sm text-amber-200">
+                    <span class="font-semibold">Maintenance in progress.</span>
+                    We're migrating our data feeds &mdash; status values and figures may be temporarily incomplete or out of date.
+                </p>
+            </div>
+        </div>
+
         <!-- MAIN DASHBOARD -->
         <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
             <div class="max-w-7xl mx-auto">
@@ -179,17 +190,22 @@
             return `${y}-${m}-${day}`;
         };
 
-        // Color-coded status flag (Turvo order status; WMS-Only is a separate badge).
+        // Color-coded status flag. Known labels -> colored pill; unmapped non-blank
+        // values -> the raw value in a gray pill (truncated to 10 chars); blank -> no flag.
         function statusFlag(status) {
             if (!status) return '';
+            const s = String(status);
             const colors = {
-                'Closed': 'bg-slate-500/20 text-slate-300 border-slate-500/50',
-                'Committed': 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50',
                 'Scheduled': 'bg-sky-500/20 text-sky-300 border-sky-500/50',
+                'Committed': 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50',
+                'Signed In': 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50',
+                'Loading': 'bg-amber-500/20 text-amber-300 border-amber-500/50',
                 'Loaded': 'bg-purple-500/20 text-purple-300 border-purple-500/50',
+                'Shipped': 'bg-lime-500/20 text-lime-300 border-lime-500/50',
             };
-            const cls = colors[status] || 'bg-slate-500/20 text-slate-300 border-slate-500/50';
-            return `<span class="inline-block text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${cls}">${status}</span>`;
+            const cls = colors[s] || 'bg-slate-500/20 text-slate-300 border-slate-500/50';
+            const label = colors[s] ? s : s.slice(0, 10);
+            return `<span class="inline-block text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${cls}">${label}</span>`;
         }
 
         // Weekend badge for a rare Sat/Sun shipment (shown next to the status flag).
