@@ -153,13 +153,16 @@
         }
 
         // Small yellow text chip for a mismatch on a line (only rendered when `on` is true).
-        function mismatchLineChip(type, on) {
+        // `expected` = NAV qty; `allocated` = WMS-allocated qty (both shown in the tooltip).
+        function mismatchLineChip(type, on, expected, allocated) {
             if (!on) return '';
+            const fmtQty = v => (v == null || v === '') ? 'n/a' : `${v} cs`;
             if (type === 'qty') {
-                return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10px] font-semibold whitespace-nowrap">${ICON_QTY} Qty Mismatch</span>`;
+                const tip = `Qty Mismatch — Allocated (WMS): ${fmtQty(allocated)} · Expected (NAV): ${fmtQty(expected)}`;
+                return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10px] font-semibold whitespace-nowrap cursor-help" title="${tip}">${ICON_QTY} Qty Mismatch</span>`;
             }
             if (type === 'item') {
-                return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10px] font-semibold whitespace-nowrap">${ICON_ITEM} Item Mismatch</span>`;
+                return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10px] font-semibold whitespace-nowrap cursor-help" title="Item Mismatch — item differs between NAV and WMS">${ICON_ITEM} Item Mismatch</span>`;
             }
             return '';
         }
@@ -291,7 +294,8 @@
                             hold_type: ln.hold_type || '',
                             hold_msg: ln.hold_msg || '',
                             qty_mismatch: !!ln.qty_mismatch,
-                            item_mismatch: !!ln.item_mismatch
+                            item_mismatch: !!ln.item_mismatch,
+                            alloc_qty: ln.alloc_qty != null ? String(ln.alloc_qty) : ''
                         });
                     });
                 });
@@ -676,7 +680,7 @@
                                                     <span class="sm:hidden text-xs text-slate-500 uppercase tracking-wide font-sans">Hold Check:</span> 
                                                     <div class="flex flex-col sm:items-center gap-1">
                                                         <div class="hold-tip inline-flex items-center gap-1"${tip} role="img" aria-label="${st.label}">${statusInner}</div>
-                                                        <div class="flex flex-col gap-1">${mismatchLineChip('qty', line.qty_mismatch)}${mismatchLineChip('item', line.item_mismatch)}</div>
+                                                        <div class="flex flex-col gap-1">${mismatchLineChip('qty', line.qty_mismatch, line.qty, line.alloc_qty)}${mismatchLineChip('item', line.item_mismatch)}</div>
                                                     </div>
                                                 </div>
                                             </div>
