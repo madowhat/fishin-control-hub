@@ -40,6 +40,7 @@
             <button onclick="filterWarehouse('Baltimore')" id="wh-Baltimore" class="px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white transition">Baltimore</button>
             <button onclick="filterWarehouse('Mobile')" id="wh-Mobile" class="px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white transition">Mobile</button>
             <button onclick="filterWarehouse('Burien')" id="wh-Burien" class="px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white transition">Burien</button>
+            <button onclick="filterWarehouse('Portsmouth')" id="wh-Portsmouth" class="px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white transition">Portsmouth</button>
         </div>
         <div>
             <button onclick="toggleArchive()" id="wh-Archive" class="px-3 py-1 bg-slate-950 text-indigo-400 border border-indigo-900/50 text-xs font-semibold rounded-md cursor-pointer hover:bg-indigo-950/30 transition">Recent Archive (14 Days)</button>
@@ -102,6 +103,7 @@
                                 <option value="Baltimore">Baltimore (EST)</option>
                                 <option value="Mobile">Mobile (CST)</option>
                                 <option value="Burien">Burien (PST)</option>
+                                <option value="Portsmouth">Portsmouth (EST)</option>
                             </select>
                         </div>
                         <div>
@@ -146,7 +148,7 @@
                     <div>
                         <label class="block text-slate-400 mb-1">Origin Warehouse</label>
                         <select id="maintWh" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
-                            <option value="Baltimore">Baltimore</option><option value="Mobile">Mobile</option><option value="Burien">Burien</option>
+                            <option value="Baltimore">Baltimore</option><option value="Mobile">Mobile</option><option value="Burien">Burien</option><option value="Portsmouth">Portsmouth</option>
                         </select>
                     </div>
                     <div>
@@ -811,7 +813,7 @@
             currentWhFilter = wh;
             
             // Set clicked warehouse button to highlighted style, set others to dark unselected style
-            ['All', 'Baltimore', 'Mobile', 'Burien'].forEach(w => {
+            ['All', 'Baltimore', 'Mobile', 'Burien', 'Portsmouth'].forEach(w => {
                 const element = document.getElementById(`wh-${w}`);
                 if (element) {
                     element.className = w === wh 
@@ -836,7 +838,7 @@
                 isArchiveView = true;
                 
                 // Clear active highlighted styling from all location buttons (showing they are unselected)
-                ['All', 'Baltimore', 'Mobile', 'Burien'].forEach(w => {
+                ['All', 'Baltimore', 'Mobile', 'Burien', 'Portsmouth'].forEach(w => {
                     const element = document.getElementById(`wh-${w}`);
                     if (element) {
                         element.className = "px-3 py-1 bg-slate-950 text-slate-400 border border-slate-800 text-xs font-semibold rounded-md cursor-pointer hover:text-white transition";
